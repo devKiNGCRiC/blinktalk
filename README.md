@@ -1,125 +1,120 @@
 # 💬 BlinkTalk - Real-Time Chat Application
 
-A modern, real-time chat application with anonymous stranger chat feature (like Omegle).
+Chat with friends in real time, hang out in group rooms, or tap one button to talk to a random stranger, with no account needed.
 
 ## ✨ Features
 
-### Free Features
-- ✅ User Registration & Authentication
-- ✅ One-on-one Private Messaging
-- ✅ Group Chats (unlimited)
-- ✅ Anonymous Stranger Chat (No login required!)
-- ✅ Real-time Message Delivery
-- ✅ Online/Offline Status
-- ✅ Typing Indicators
-- ✅ Message History
-
-### Planned Premium Features ($2.99/month) — not built yet
-- 🎥 Video Calling
-- 🎨 Custom Themes
-- 📁 File & Image Sharing
-- 🚫 Ad-Free Experience
-- ⚡ Priority Support
+- **Accounts:** sign up and log in with JWT authentication, with live password rules as you type
+- **Private chats:** real-time messages with ✓ sent, ✓✓ delivered and ✓✓ read receipts
+- **Group rooms:** public rooms anyone can find and join, plus private rooms
+- **Anonymous stranger chat:** random matching, a *Next* button to skip, and no login required
+- **Chat tools:**
+  - reply to a message
+  - copy text
+  - delete for me or for everyone
+  - emoji picker
+  - typing indicators
+- **Presence:** online dots, "last seen", and unread badges on chats, in the nav and in the tab title
+- **5 themes:** Midnight Neon, Sunset, Clean Light, Matcha and Y2K Pink. Your pick is saved to your account.
+- **Profile & settings:** display name, bio, generated avatars, message sound, and changing your password
+- **Works on phones:** a one-pane layout with a bottom tab bar, bottom-sheet menus and long-press actions
+- **Reliable:** reconnects automatically, retries failed messages, and shows toast messages instead of pop-up alerts
 
 ## 🛠️ Tech Stack
 
-- **Backend:** Node.js, Express.js, Socket.io
-- **Database:** MongoDB with Mongoose
-- **Authentication:** JWT (JSON Web Tokens)
-- **Frontend:** HTML5, CSS3, Vanilla JavaScript
-- **Real-time:** Socket.io
+| Part | Tech |
+|---|---|
+| Frontend | React 19, Vite, CSS Modules + CSS variables for themes, Socket.IO client |
+| Backend | Node.js, Express, Socket.IO |
+| Database | MongoDB with Mongoose |
+| Auth | JWT (also used to authenticate the socket connection) |
+| Tests | `node:test` + in-memory MongoDB for the backend, Vitest for the frontend |
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js (v18 or higher)
-- MongoDB (local or Atlas account)
-- Git
+- Node.js **20.19 or newer**
+- MongoDB, either installed locally or a free [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) cluster
 
-### Installation
+### Setup
 
-1. Clone the repository
 ```bash
 git clone https://github.com/devKiNGCRiC/blinktalk.git
 cd blinktalk
+npm install                 # backend dependencies
+npm install --prefix client # frontend dependencies
+cp .env.example .env        # then set MONGODB_URI and JWT_SECRET
 ```
 
-2. Install dependencies
-```bash
-npm install
-```
+### Run in development
 
-3. Create .env file
-```bash
-cp .env.example .env
-```
-
-4. Update .env with your credentials
-- MongoDB URI
-- JWT Secret
-- Cloudinary credentials (optional)
-
-5. Start the development server
 ```bash
 npm run dev
 ```
 
-6. Open your browser
+This starts the API on http://localhost:5000 and the React app on **http://localhost:5173** (open this one). Both reload when you save a change.
+
+### Run in production mode
+
+```bash
+npm run build   # builds the React app into client/dist
+npm start       # serves the app + API on http://localhost:5000
 ```
-http://localhost:5000
+
+## 🧪 Tests
+
+```bash
+npm test
 ```
+
+This runs the backend integration tests against a throwaway in-memory MongoDB, so no database setup is needed. The first run downloads a MongoDB binary. It then runs the frontend unit tests.
 
 ## 📁 Project Structure
 
 ```
 BlinkTalk/
 ├── backend/
-│   ├── config/          # Configuration files
-│   ├── models/          # MongoDB schemas
-│   ├── routes/          # API endpoints
-│   ├── controllers/     # Business logic
-│   ├── middleware/      # Custom middleware
-│   ├── socket/          # Socket.io handlers
-│   └── server.js        # Entry point
-├── frontend/
-│   ├── css/            # Stylesheets
-│   ├── js/             # Client-side JavaScript
-│   └── index.html      # Single-page app
-└── package.json
+│   ├── config/          # Database + JWT helpers
+│   ├── controllers/     # REST API logic
+│   ├── middleware/      # Auth + input validation
+│   ├── models/          # Mongoose schemas (User, Message, Room)
+│   ├── routes/          # REST endpoints
+│   ├── socket/          # Real-time events (messages, receipts, typing, stranger chat)
+│   └── server.js        # Entry point, also serves client/dist
+├── client/              # React + Vite app
+│   └── src/
+│       ├── api/         # REST calls
+│       ├── context/     # Auth, socket, theme, toast and chat state
+│       ├── components/  # Avatar, Composer, Modal, …
+│       ├── features/    # auth, sidebar, chat, rooms, stranger, settings
+│       ├── lib/         # Pure helpers (formatting, grouping, themes)
+│       └── styles/      # Theme variables + global styles
+├── tests/               # Backend integration tests
+└── docs/                # Design spec
 ```
 
-## 🌐 Deployment
+## 🌐 Deployment (Render + MongoDB Atlas)
 
-### Backend Deployment (Render/Railway)
-1. Create account on Render.com or Railway.app
-2. Connect your GitHub repository
-3. Set environment variables
-4. Deploy!
+1. Create a free MongoDB Atlas cluster and copy its connection string.
+2. On [Render](https://render.com), create a **Web Service** from this GitHub repository:
+   - **Build command:** `npm install && npm run build`
+   - **Start command:** `npm start`
+   - **Environment variables:** `MONGODB_URI`, `JWT_SECRET` (a long random string), `NODE_ENV=production`
+3. Deploy. The one service serves both the API and the React app.
 
-### Database (MongoDB Atlas)
-1. Create free cluster at mongodb.com/cloud/atlas
-2. Get connection string
-3. Add to .env file
+To generate a JWT secret:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
 
-### Frontend
-The Express server also serves the `frontend/` folder, so deploying the backend
-deploys the whole app — no separate frontend hosting is needed.
+## 🗺️ Roadmap
 
-## 💰 Monetization Strategy
-
-- **Free Tier:** All basic features + anonymous chat
-- **Premium:** $2.99/month (video calls, themes, file sharing)
-- **Ads:** Google AdSense for free users
-- **Business Plan:** $9.99/month (team features)
+See [ROADMAP.md](ROADMAP.md). Next up: image and file sharing, room management (members, invites), and interest-based stranger matching.
 
 ## 📝 License
 
-MIT License - feel free to use for learning!
+[MIT](LICENSE)
 
 ## 👨‍💻 Author
 
-Created by [devKiNGCRiC](https://github.com/devKiNGCRiC) - MCA Student, India
-
-## 🤝 Contributing
-
-Pull requests are welcome! This is a learning project.
+Created by [devKiNGCRiC](https://github.com/devKiNGCRiC), MCA student, India.

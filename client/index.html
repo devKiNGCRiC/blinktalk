@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="Chat with friends in real time, or talk to a random stranger anonymously.">
+    <title>BlinkTalk</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Apply the saved theme before React loads, so the page never flashes the wrong colors.
+         Keep in sync with resolveInitialTheme() in src/lib/theme.js -->
+    <script>
+        (function () {
+            var themes = ['midnight', 'sunset', 'light', 'matcha', 'y2k'];
+            var theme;
+            try { theme = localStorage.getItem('theme'); } catch (e) {}
+            if (themes.indexOf(theme) === -1) {
+                var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+                theme = prefersLight ? 'light' : 'midnight';
+            }
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>

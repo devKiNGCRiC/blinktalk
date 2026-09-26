@@ -1,0 +1,62 @@
+.logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.word {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--text-lg);
+    letter-spacing: -0.02em;
+}
+
+.mark {
+    flex: none;
+}
+
+.stopA {
+    stop-color: var(--logo-a, #a78bfa);
+}
+
+.stopB {
+    stop-color: var(--logo-b, #67e8f9);
+}
+
+[data-theme='sunset'] .mark {
+    --logo-a: #fb923c;
+    --logo-b: #f472b6;
+}
+
+[data-theme='light'] .mark {
+    --logo-a: #4338ca;
+    --logo-b: #818cf8;
+}
+
+[data-theme='matcha'] .mark {
+    --logo-a: #276749;
+    --logo-b: #38b2ac;
+}
+
+[data-theme='y2k'] .mark {
+    --logo-a: #ff5fb8;
+    --logo-b: #7cc8ff;
+}
+
+.eyes {
+    fill: var(--bg);
+    transform-origin: 32px 28px;
+    animation: blink 5s infinite;
+}
+
+@keyframes blink {
+    0%,
+    92%,
+    100% {
+        transform: scaleY(1);
+    }
+
+    95% {
+        transform: scaleY(0.1);
+    }
+}

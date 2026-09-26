@@ -1,0 +1,266 @@
+.page {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 32px clamp(16px, 5vw, 64px) 64px;
+}
+
+.column {
+    max-width: 680px;
+    margin: 0 auto;
+    display: grid;
+    gap: 16px;
+}
+
+.heading {
+    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    margin-bottom: 8px;
+}
+
+.section {
+    display: grid;
+    gap: 18px;
+    padding: 22px;
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    border: 1px solid var(--border);
+}
+
+.sectionHead {
+    display: grid;
+    gap: 2px;
+}
+
+.sectionHead h2 {
+    font-size: var(--text-md);
+}
+
+.muted {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+}
+
+.form {
+    display: grid;
+    gap: 16px;
+}
+
+.counter {
+    justify-self: end;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+/* ---------- Profile ---------- */
+
+.profileTop {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.profileName {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 700;
+}
+
+.avatars {
+    border: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.avatars legend {
+    margin-bottom: 8px;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.avatarChoice {
+    padding: 3px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.25s var(--ease-spring), border-color 0.15s ease;
+}
+
+.avatarChoice:hover {
+    transform: scale(1.08);
+}
+
+.avatarChoice input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.avatarChoice:has(input:focus-visible) {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.avatarActive {
+    border-color: var(--accent);
+}
+
+/* ---------- Theme cards ---------- */
+
+.themes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+    gap: 10px;
+}
+
+/* Each card sets its own data-theme, so it shows that theme's real colors */
+.themeCard {
+    display: grid;
+    gap: 8px;
+    padding: 8px;
+    border-radius: var(--radius-md);
+    background: var(--bg);
+    color: var(--text);
+    border: 2px solid var(--border);
+    text-align: left;
+    transition: transform 0.25s var(--ease-spring), border-color 0.15s ease;
+}
+
+.themeCard:hover {
+    transform: translateY(-3px);
+}
+
+.themeActive {
+    border-color: var(--accent);
+    box-shadow: var(--glow);
+}
+
+.mini {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 8px;
+    border-radius: 10px;
+    background: var(--surface);
+    font-size: 0.6875rem;
+    font-weight: 600;
+}
+
+.miniThem,
+.miniMe {
+    padding: 3px 8px;
+    border-radius: 9px;
+    width: fit-content;
+}
+
+.miniThem {
+    background: var(--bubble-them);
+    color: var(--bubble-them-text);
+}
+
+.miniMe {
+    align-self: flex-end;
+    background: var(--bubble-me);
+    color: var(--bubble-me-text);
+}
+
+.themeName {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px 2px;
+    font-size: var(--text-sm);
+    font-weight: 700;
+}
+
+.themeName svg {
+    color: var(--accent);
+}
+
+/* ---------- Toggle ---------- */
+
+.toggleRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.rowTitle {
+    font-weight: 600;
+}
+
+.switch {
+    flex: none;
+    position: relative;
+    width: 50px;
+    height: 30px;
+    border-radius: 999px;
+    background: var(--surface-3);
+    transition: background-color 0.2s ease;
+}
+
+.switch::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    transition: transform 0.3s var(--ease-spring);
+}
+
+.switchOn {
+    background: var(--accent-gradient);
+}
+
+.switchOn::after {
+    transform: translateX(20px);
+}
+
+/* ---------- Password rules ---------- */
+
+.rules {
+    list-style: none;
+    margin: -6px 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 12px;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+.rules li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.rules svg {
+    opacity: 0.35;
+}
+
+.rules .met {
+    color: var(--online);
+}
+
+.rules .met svg {
+    opacity: 1;
+}
+
+@media (max-width: 767px) {
+    .page {
+        padding-top: calc(20px + env(safe-area-inset-top));
+    }
+
+    .section {
+        padding: 18px 16px;
+    }
+}

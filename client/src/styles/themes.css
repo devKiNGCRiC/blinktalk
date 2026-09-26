@@ -1,0 +1,141 @@
+/* ============================================
+   Theme presets
+   Every component uses only these variables, so a new theme is one new block.
+   Message text contrast is WCAG AA (4.5:1) or better in every theme.
+   ============================================ */
+
+:root,
+[data-theme='midnight'] {
+    color-scheme: dark;
+    --bg: #0b0b12;
+    --surface: #13131f;
+    --surface-2: #1c1c2b;
+    --surface-3: #26263a;
+    --border: #26263a;
+    --text: #ecebf5;
+    --text-muted: #9795ad;
+    --accent: #a78bfa;
+    --accent-strong: #c4b5fd;
+    --accent-gradient: linear-gradient(135deg, #a78bfa 0%, #67e8f9 100%);
+    --on-accent: #0b0b12;
+    --bubble-me: linear-gradient(135deg, #b9a3ff 0%, #7ee6f7 100%);
+    --bubble-me-text: #0b0b12;
+    --bubble-me-muted: rgba(11, 11, 18, 0.62);
+    --receipt-read: #5b21b6;
+    --bubble-them: #1f1f30;
+    --bubble-them-text: #ecebf5;
+    --glow: 0 0 0 1px rgba(167, 139, 250, 0.35), 0 8px 28px rgba(139, 92, 246, 0.35);
+    --online: #34d399;
+    --danger: #f87171;
+    --radius-bubble: 18px;
+    --shadow-pop: 0 18px 48px rgba(0, 0, 0, 0.55);
+    --scrim: rgba(5, 5, 10, 0.66);
+}
+
+[data-theme='sunset'] {
+    color-scheme: dark;
+    --bg: #1a0f1f;
+    --surface: #22132a;
+    --surface-2: #2d1a37;
+    --surface-3: #3a2246;
+    --border: #3d2647;
+    --text: #fbeef3;
+    --text-muted: #c4a7b8;
+    --accent: #fb7185;
+    --accent-strong: #fda4af;
+    --accent-gradient: linear-gradient(135deg, #fb923c 0%, #f472b6 55%, #c084fc 100%);
+    --on-accent: #1a0f1f;
+    --bubble-me: linear-gradient(135deg, #fdae6b 0%, #f58bc6 60%, #cfa0fd 100%);
+    --bubble-me-text: #1a0f1f;
+    --bubble-me-muted: rgba(26, 15, 31, 0.62);
+    --receipt-read: #86198f;
+    --bubble-them: #2f1b38;
+    --bubble-them-text: #fbeef3;
+    --glow: 0 0 0 1px rgba(244, 114, 182, 0.35), 0 8px 28px rgba(244, 114, 182, 0.3);
+    --online: #4ade80;
+    --danger: #ff8a8a;
+    --radius-bubble: 18px;
+    --shadow-pop: 0 18px 48px rgba(10, 0, 12, 0.6);
+    --scrim: rgba(12, 4, 16, 0.66);
+}
+
+[data-theme='light'] {
+    color-scheme: light;
+    --bg: #f6f7fb;
+    --surface: #ffffff;
+    --surface-2: #eef0f6;
+    --surface-3: #e2e5ee;
+    --border: #e2e5ee;
+    --text: #151827;
+    --text-muted: #5b6078;
+    --accent: #4f46e5;
+    --accent-strong: #4338ca;
+    --accent-gradient: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%);
+    --on-accent: #ffffff;
+    --bubble-me: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%);
+    --bubble-me-text: #ffffff;
+    --bubble-me-muted: rgba(255, 255, 255, 0.75);
+    --receipt-read: #a5f3fc;
+    --bubble-them: #eef0f6;
+    --bubble-them-text: #151827;
+    --glow: 0 6px 18px rgba(79, 70, 229, 0.22);
+    --online: #16a34a;
+    --danger: #dc2626;
+    --radius-bubble: 18px;
+    --shadow-pop: 0 18px 48px rgba(21, 24, 39, 0.16);
+    --scrim: rgba(21, 24, 39, 0.4);
+}
+
+[data-theme='matcha'] {
+    color-scheme: light;
+    --bg: #f3f6ef;
+    --surface: #fbfdf8;
+    --surface-2: #e8efe1;
+    --surface-3: #dbe5d1;
+    --border: #d7e0cd;
+    --text: #1e2a1f;
+    --text-muted: #56655a;
+    --accent: #276749;
+    --accent-strong: #1f5a3f;
+    --accent-gradient: linear-gradient(135deg, #276749 0%, #0f766e 100%);
+    --on-accent: #ffffff;
+    --bubble-me: linear-gradient(135deg, #276749 0%, #0f766e 100%);
+    --bubble-me-text: #ffffff;
+    --bubble-me-muted: rgba(255, 255, 255, 0.75);
+    --receipt-read: #d9f99d;
+    --bubble-them: #e6eddf;
+    --bubble-them-text: #1e2a1f;
+    --glow: 0 6px 18px rgba(39, 103, 73, 0.2);
+    --online: #2f855a;
+    --danger: #c53030;
+    --radius-bubble: 18px;
+    --shadow-pop: 0 18px 48px rgba(30, 42, 31, 0.16);
+    --scrim: rgba(30, 42, 31, 0.4);
+}
+
+[data-theme='y2k'] {
+    color-scheme: light;
+    --bg: #f4efff;
+    --surface: #fffaff;
+    --surface-2: #f0e6fb;
+    --surface-3: #e6d7f7;
+    --border: #e3d3f5;
+    --text: #2a1640;
+    --text-muted: #6e5a86;
+    --accent: #db2777;
+    --accent-strong: #be185d;
+    --accent-gradient: linear-gradient(135deg, #ff5fb8 0%, #7cc8ff 100%);
+    --on-accent: #2a1640;
+    --bubble-me: linear-gradient(135deg, #ff7cc4 0%, #8fd0ff 100%);
+    --bubble-me-text: #2a1640;
+    --bubble-me-muted: rgba(42, 22, 64, 0.65);
+    --receipt-read: #6d28d9;
+    --bubble-them: #ffffff;
+    --bubble-them-text: #2a1640;
+    --glow: 0 0 0 2px #fff, 0 6px 20px rgba(255, 95, 184, 0.35);
+    --online: #10b981;
+    --danger: #e11d48;
+    --radius-bubble: 22px;
+    --shadow-pop: 0 18px 48px rgba(42, 22, 64, 0.18);
+    --scrim: rgba(42, 22, 64, 0.35);
+}

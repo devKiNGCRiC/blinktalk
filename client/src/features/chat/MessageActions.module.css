@@ -1,0 +1,45 @@
+.preview {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+}
+
+.list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 2px;
+}
+
+.list button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    text-align: left;
+}
+
+.list button:hover {
+    background: var(--surface-2);
+}
+
+.list svg {
+    color: var(--text-muted);
+}
+
+.list .danger,
+.list .danger svg {
+    color: var(--danger);
+}

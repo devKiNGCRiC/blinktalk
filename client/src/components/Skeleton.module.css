@@ -1,0 +1,43 @@
+.list {
+    display: grid;
+    gap: 4px;
+    padding: 8px 10px;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+}
+
+.circle,
+.line {
+    background: var(--surface-2);
+    animation: pulse 1.4s ease-in-out infinite;
+    animation-delay: var(--delay);
+}
+
+.circle {
+    flex: none;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+}
+
+.lines {
+    flex: 1;
+    display: grid;
+    gap: 8px;
+}
+
+.line {
+    height: 10px;
+    border-radius: 6px;
+}
+
+@keyframes pulse {
+    50% {
+        opacity: 0.45;
+    }
+}
