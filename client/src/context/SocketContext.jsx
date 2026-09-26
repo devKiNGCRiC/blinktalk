@@ -17,7 +17,9 @@ export function SocketProvider({ children }) {
     useEffect(() => {
         if (status !== 'user' && status !== 'guest') return undefined;
 
-        const newSocket = io({ transports: ['websocket', 'polling'] });
+        // The token in `auth` identifies the user during the handshake, so messages
+        // queued while offline are accepted as soon as the connection comes back
+        const newSocket = io({ transports: ['websocket', 'polling'], auth: token ? { token } : {} });
 
         newSocket.on('connect', () => {
             setConnected(true);

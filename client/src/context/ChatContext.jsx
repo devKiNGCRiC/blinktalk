@@ -292,7 +292,7 @@ export function ChatProvider({ children }) {
         joinAndOpenRoom,
         createRoom,
         emitTyping,
-        reload: () => { loadContacts(); loadRooms(); }
+        reloadRooms: loadRooms
     }), [state, myId, totalUnread, openChat, closeChat, sendMessage, retryMessage, deleteMessage, setReplyTo, joinAndOpenRoom, createRoom, emitTyping, loadContacts, loadRooms]);
 
     return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

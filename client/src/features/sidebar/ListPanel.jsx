@@ -116,6 +116,13 @@ export default function ListPanel({ tab }) {
     const [creating, setCreating] = useState(false);
     const results = useSearch(query);
 
+    // Refresh rooms each time the Rooms tab opens, so rooms other people
+    // created since the page loaded show up under "Public rooms to join"
+    const { reloadRooms } = chat;
+    useEffect(() => {
+        if (tab === 'rooms') reloadRooms();
+    }, [tab, reloadRooms]);
+
     const openUser = user => {
         chat.openChat({ type: 'private', user });
         setQuery('');

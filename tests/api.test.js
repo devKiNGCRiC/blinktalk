@@ -82,6 +82,20 @@ describe('server and authentication', () => {
         assert.equal(error.message, 'Authentication failed');
     });
 
+    test('token in the handshake authenticates messages sent right after connecting', async () => {
+        const sender = await user('handshaker');
+        const receiver = await user('handshakee');
+
+        // No 'user:authenticate' - the message is emitted immediately on connect,
+        // like a message queued while offline
+        const { io } = require('socket.io-client');
+        const s = io('http://localhost:5055', { transports: ['websocket'], forceNew: true, auth: { token: sender.token } });
+        openSockets.push(s);
+        const received = waitFor(receiver.socket, 'message:received');
+        s.emit('message:private', { receiverId: receiver.id, content: 'queued hello', tempId: 'q1' });
+        assert.equal((await received).content, 'queued hello');
+    });
+
     test('theme preference can be saved', async () => {
         const u = await user('themer');
         const res = await api('PUT', '/api/users/profile', { preferences: { theme: 'y2k' }, bio: 'hi' }, u.token);
@@ -229,7 +243,14 @@ describe('rooms', () => {
         const search = await api('GET', '/api/rooms/search?q=Cricket', null, member.token);
         assert.equal(search.body.data.rooms.length, 1);
 
+        // The owner sees "roommember joined the room" live
+        const joined = waitFor(owner.socket, 'message:room:received');
+        owner.socket.emit('room:join', { roomId });
+        await sleep(100);
         assert.equal((await api('POST', `/api/rooms/${roomId}/join`, {}, member.token)).status, 200);
+        const systemMessage = await joined;
+        assert.equal(systemMessage.type, 'system');
+        assert.equal(systemMessage.content, 'roommember joined the room');
     });
 
     test('room messages reach members, with sender confirmation', async () => {

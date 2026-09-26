@@ -139,6 +139,9 @@ const socketHandler = require('./socket/socketHandler');
 // Initialize socket handlers with io instance
 socketHandler(io);
 
+// Let REST controllers send real-time events too (e.g. "X joined the room")
+app.set('io', io);
+
 // ============================================
 // Serve Frontend
 // ============================================

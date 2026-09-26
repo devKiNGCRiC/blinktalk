@@ -70,6 +70,27 @@ module.exports = (io) => {
     }
 
     // ============================================
+    // Handshake Authentication
+    // ============================================
+
+    // Logged-in clients send their JWT when connecting: io({ auth: { token } }).
+    // Identifying the user here (instead of only in 'user:authenticate') means
+    // messages queued while offline, which the client sends the instant it
+    // reconnects, are already authenticated. Guests connect without a token.
+    io.use((socket, next) => {
+        const token = socket.handshake.auth && socket.handshake.auth.token;
+        if (token) {
+            try {
+                socket.userId = verifyToken(token).id;
+                socket.join(`user:${socket.userId}`);
+            } catch (error) {
+                // Invalid/expired token: connect as a guest; 'user:authenticate' will report the error
+            }
+        }
+        next();
+    });
+
+    // ============================================
     // Connection Event - User Connects
     // ============================================
 

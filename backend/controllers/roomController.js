@@ -230,12 +230,21 @@ const joinRoom = async (req, res) => {
         await room.addMember(req.user._id);
 
         // Create system message for join event
-        await Message.create({
+        const systemMessage = await Message.create({
             sender: req.user._id,
             room: roomId,
             content: `${req.user.username} joined the room`,
             type: 'system'
         });
+
+        // The new member's open connections start receiving this room's messages,
+        // and everyone in the room sees "X joined the room" live
+        const io = req.app.get('io');
+        if (io) {
+            io.in(`user:${req.user._id}`).socketsJoin(`room:${roomId}`);
+            await systemMessage.populate('sender', 'username displayName avatar');
+            io.to(`room:${roomId}`).emit('message:room:received', systemMessage);
+        }
 
         // Populate and send updated room
         await room.populate('members.user', 'username displayName avatar');
@@ -304,12 +313,20 @@ const leaveRoom = async (req, res) => {
         await room.removeMember(req.user._id);
 
         // Create system message for leave event
-        await Message.create({
+        const systemMessage = await Message.create({
             sender: req.user._id,
             room: roomId,
             content: `${req.user.username} left the room`,
             type: 'system'
         });
+
+        // Stop sending this room's messages to the user, and tell the others
+        const io = req.app.get('io');
+        if (io) {
+            io.in(`user:${req.user._id}`).socketsLeave(`room:${roomId}`);
+            await systemMessage.populate('sender', 'username displayName avatar');
+            io.to(`room:${roomId}`).emit('message:room:received', systemMessage);
+        }
 
         // Send success response
         res.status(200).json({
