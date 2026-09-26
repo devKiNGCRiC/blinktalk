@@ -3,7 +3,11 @@
 // ============================================
 
 // This file handles all real-time Socket.io events
-// Manages: Private messaging, group chat, typing indicators, anonymous stranger chat
+// Manages: Private messaging, group chat, typing indicators, read receipts,
+// message deletion and anonymous stranger chat
+
+// Import mongoose to validate IDs sent by the client
+const mongoose = require('mongoose');
 
 // Import models
 const User = require('../models/User');
@@ -16,12 +20,36 @@ const { v4: uuidv4 } = require('uuid');
 // Import JWT verification for socket authentication
 const { verifyToken } = require('../config/jwt');
 
+// Maximum message length (same as the Message model)
+const MAX_MESSAGE_LENGTH = 5000;
+
 // Store for anonymous stranger chat matching
 // Format: { sessionId: { socketId, interests, partnerId, isSearching } }
 const anonymousUsers = new Map();
 
 // Store waiting users looking for strangers
 const waitingQueue = [];
+
+// ============================================
+// Small Helpers
+// ============================================
+
+/**
+ * Returns trimmed message text, or null if it is empty / too long / not text
+ */
+function cleanContent(content) {
+    if (typeof content !== 'string') return null;
+    const trimmed = content.trim();
+    if (!trimmed || trimmed.length > MAX_MESSAGE_LENGTH) return null;
+    return trimmed;
+}
+
+/**
+ * Returns the ID if it is a valid MongoDB ObjectId, otherwise null
+ */
+function validId(id) {
+    return mongoose.isValidObjectId(id) ? id : null;
+}
 
 // ============================================
 // Main Socket Handler Function
@@ -32,11 +60,19 @@ const waitingQueue = [];
  * @param {Object} io - Socket.io server instance
  */
 module.exports = (io) => {
-    
+
+    /**
+     * Is the user connected right now (in any browser tab)?
+     */
+    async function isUserConnected(userId) {
+        const sockets = await io.in(`user:${userId}`).fetchSockets();
+        return sockets.length > 0;
+    }
+
     // ============================================
     // Connection Event - User Connects
     // ============================================
-    
+
     io.on('connection', (socket) => {
         console.log(`🔌 New connection: ${socket.id}`);
 
@@ -73,15 +109,45 @@ module.exports = (io) => {
                 // Join user's personal room for notifications
                 socket.join(`user:${userId}`);
 
+                // Join all rooms the user is a member of,
+                // so room previews update live even when the room isn't open
+                const rooms = await Room.find({ 'members.user': userId, isActive: true }).select('_id');
+                rooms.forEach(room => socket.join(`room:${room._id}`));
+
+                // Messages sent while this user was offline are delivered now
+                const undelivered = await Message.find({
+                    receiver: userId,
+                    room: null,
+                    isDelivered: false
+                }).select('_id sender');
+
+                if (undelivered.length > 0) {
+                    await Message.updateMany(
+                        { _id: { $in: undelivered.map(m => m._id) } },
+                        { isDelivered: true, deliveredAt: new Date() }
+                    );
+
+                    // Group message IDs by sender and tell each sender
+                    const bySender = new Map();
+                    for (const message of undelivered) {
+                        const senderId = message.sender.toString();
+                        if (!bySender.has(senderId)) bySender.set(senderId, []);
+                        bySender.get(senderId).push(message._id);
+                    }
+                    for (const [senderId, messageIds] of bySender) {
+                        io.to(`user:${senderId}`).emit('message:delivered', { messageIds, to: userId });
+                    }
+                }
+
                 console.log(`✅ User ${userId} authenticated with socket ${socket.id}`);
 
                 // Broadcast to all users that this user is online
                 socket.broadcast.emit('user:online', { userId });
 
                 // Send success response
-                socket.emit('user:authenticated', { 
+                socket.emit('user:authenticated', {
                     success: true,
-                    message: 'Authenticated successfully' 
+                    message: 'Authenticated successfully'
                 });
 
             } catch (error) {
@@ -97,83 +163,153 @@ module.exports = (io) => {
         /**
          * Event: message:private
          * Description: Send a private message to another user
-         * Data: { receiverId, content, type, fileUrl, fileName, fileSize }
+         * Data: { receiverId, content, replyTo, tempId }
+         * tempId is created by the client and sent back, so the client
+         * can match the confirmed message with the one it is showing as "sending"
          */
-        socket.on('message:private', async (data) => {
-            try {
-                const { receiverId, content, type, fileUrl, fileName, fileSize, replyTo } = data;
+        socket.on('message:private', async (data = {}) => {
+            const { receiverId, replyTo, tempId } = data;
 
+            try {
                 // Get sender from authenticated socket
                 if (!socket.userId) {
-                    return socket.emit('error', { message: 'Not authenticated' });
+                    return socket.emit('message:error', { tempId, message: 'Not authenticated' });
                 }
+
+                // Validate message text
+                const content = cleanContent(data.content);
+                if (!content) {
+                    return socket.emit('message:error', { tempId, message: 'Message must be 1-5000 characters' });
+                }
+
+                // Check the receiver exists
+                const receiver = validId(receiverId) && await User.findById(receiverId);
+                if (!receiver) {
+                    return socket.emit('message:error', { tempId, message: 'User not found' });
+                }
+
+                // Check neither user has blocked the other
+                const sender = await User.findById(socket.userId);
+                if (sender.blockedUsers.some(id => id.toString() === receiverId) ||
+                    receiver.blockedUsers.some(id => id.toString() === socket.userId)) {
+                    return socket.emit('message:error', { tempId, message: 'You can\'t message this user' });
+                }
+
+                // Mark as delivered right away if the receiver is connected
+                const receiverOnline = await isUserConnected(receiverId);
 
                 // Create message in database
                 const message = await Message.create({
                     sender: socket.userId,
                     receiver: receiverId,
                     content,
-                    type: type || 'text',
-                    fileUrl: fileUrl || null,
-                    fileName: fileName || null,
-                    fileSize: fileSize || null,
-                    replyTo: replyTo || null
+                    type: 'text',
+                    replyTo: validId(replyTo),
+                    isDelivered: receiverOnline,
+                    deliveredAt: receiverOnline ? new Date() : null
                 });
 
                 // Populate message details
                 await message.populate('sender', 'username displayName avatar');
                 await message.populate('receiver', 'username displayName avatar');
+                await message.populate(Message.REPLY_POPULATE);
 
-                // Send message to receiver if they're online
+                // Send message to receiver (all their open tabs)
                 io.to(`user:${receiverId}`).emit('message:received', message);
 
-                // Send confirmation to sender
-                socket.emit('message:sent', message);
-
-                // Mark as delivered if receiver is online
-                const receiver = await User.findById(receiverId);
-                if (receiver && receiver.isOnline) {
-                    message.isDelivered = true;
-                    message.deliveredAt = new Date();
-                    await message.save();
-
-                    // Notify both users about delivery
-                    io.to(`user:${receiverId}`).emit('message:delivered', { messageId: message._id });
-                    socket.emit('message:delivered', { messageId: message._id });
-                }
+                // Send confirmation to sender, with their tempId
+                socket.emit('message:sent', { ...message.toJSON(), tempId });
 
                 console.log(`📨 Private message from ${socket.userId} to ${receiverId}`);
 
             } catch (error) {
                 console.error('Private Message Error:', error);
-                socket.emit('error', { message: 'Failed to send message' });
+                socket.emit('message:error', { tempId, message: 'Failed to send message' });
             }
         });
 
         /**
-         * Event: message:read
-         * Description: Mark message as read
-         * Data: { messageId }
+         * Event: messages:read
+         * Description: The user opened a chat - mark everything from that person as read
+         * Data: { userId } - the other person in the chat
          */
-        socket.on('message:read', async (data) => {
+        socket.on('messages:read', async (data = {}) => {
             try {
-                const { messageId } = data;
+                const otherUserId = validId(data.userId);
+                if (!socket.userId || !otherUserId) return;
 
-                // Find and update message
-                const message = await Message.findById(messageId);
-                
-                if (message) {
-                    await message.markAsRead();
+                const result = await Message.updateMany(
+                    { sender: otherUserId, receiver: socket.userId, isRead: false },
+                    { isRead: true, readAt: new Date(), isDelivered: true }
+                );
 
-                    // Notify sender that message was read
-                    io.to(`user:${message.sender}`).emit('message:read:confirm', {
-                        messageId: message._id,
-                        readAt: message.readAt
+                // Tell the sender their messages were read (✓✓ turns colored)
+                if (result.modifiedCount > 0) {
+                    io.to(`user:${otherUserId}`).emit('messages:read', {
+                        by: socket.userId,
+                        at: new Date()
                     });
                 }
 
             } catch (error) {
                 console.error('Mark Read Error:', error);
+            }
+        });
+
+        /**
+         * Event: message:delete
+         * Description: Delete a message for me, or for everyone (sender only)
+         * Data: { messageId, scope: 'me' | 'everyone' }
+         */
+        socket.on('message:delete', async (data = {}) => {
+            try {
+                if (!socket.userId) return;
+
+                const message = validId(data.messageId) && await Message.findById(data.messageId);
+                if (!message) {
+                    return socket.emit('error', { message: 'Message not found' });
+                }
+
+                const isSender = message.sender && message.sender.toString() === socket.userId;
+
+                // Who is allowed to see this message?
+                let canSee = isSender || (message.receiver && message.receiver.toString() === socket.userId);
+                if (!canSee && message.room) {
+                    const room = await Room.findById(message.room);
+                    canSee = room && room.isMember(socket.userId);
+                }
+                if (!canSee) {
+                    return socket.emit('error', { message: 'You can\'t delete this message' });
+                }
+
+                if (data.scope === 'everyone') {
+                    // Only the sender can delete for everyone
+                    if (!isSender) {
+                        return socket.emit('error', { message: 'Only the sender can delete for everyone' });
+                    }
+
+                    message.isDeleted = true;
+                    await message.save();
+
+                    // Tell everyone who can see the message
+                    const payload = { messageId: message._id, scope: 'everyone' };
+                    if (message.room) {
+                        io.to(`room:${message.room}`).emit('message:deleted', payload);
+                    } else {
+                        io.to(`user:${message.sender}`).to(`user:${message.receiver}`).emit('message:deleted', payload);
+                    }
+                } else {
+                    // Delete for me: hide it only for this user
+                    if (!message.deletedFor.some(id => id.toString() === socket.userId)) {
+                        message.deletedFor.push(socket.userId);
+                        await message.save();
+                    }
+                    io.to(`user:${socket.userId}`).emit('message:deleted', { messageId: message._id, scope: 'me' });
+                }
+
+            } catch (error) {
+                console.error('Delete Message Error:', error);
+                socket.emit('error', { message: 'Failed to delete message' });
             }
         });
 
@@ -186,7 +322,7 @@ module.exports = (io) => {
          * Description: User started typing
          * Data: { receiverId } or { roomId }
          */
-        socket.on('typing:start', async (data) => {
+        socket.on('typing:start', async (data = {}) => {
             try {
                 const { receiverId, roomId } = data;
 
@@ -194,20 +330,20 @@ module.exports = (io) => {
 
                 // Get user details
                 const user = await User.findById(socket.userId).select('username displayName');
+                if (!user) return;
+
+                const payload = {
+                    userId: socket.userId,
+                    username: user.username,
+                    displayName: user.displayName || user.username
+                };
 
                 if (receiverId) {
                     // Private chat typing
-                    io.to(`user:${receiverId}`).emit('typing:start', {
-                        userId: socket.userId,
-                        username: user.username
-                    });
+                    io.to(`user:${receiverId}`).emit('typing:start', payload);
                 } else if (roomId) {
                     // Room typing
-                    socket.to(`room:${roomId}`).emit('typing:start', {
-                        userId: socket.userId,
-                        username: user.username,
-                        roomId
-                    });
+                    socket.to(`room:${roomId}`).emit('typing:start', { ...payload, roomId });
                 }
 
             } catch (error) {
@@ -220,7 +356,7 @@ module.exports = (io) => {
          * Description: User stopped typing
          * Data: { receiverId } or { roomId }
          */
-        socket.on('typing:stop', (data) => {
+        socket.on('typing:stop', (data = {}) => {
             try {
                 const { receiverId, roomId } = data;
 
@@ -250,10 +386,10 @@ module.exports = (io) => {
 
         /**
          * Event: room:join
-         * Description: Join a room for real-time updates
+         * Description: Subscribe to a room's live messages (after joining it via the API)
          * Data: { roomId }
          */
-        socket.on('room:join', async (data) => {
+        socket.on('room:join', async (data = {}) => {
             try {
                 const { roomId } = data;
 
@@ -262,8 +398,8 @@ module.exports = (io) => {
                 }
 
                 // Check if user is member of the room
-                const room = await Room.findById(roomId);
-                
+                const room = validId(roomId) && await Room.findById(roomId);
+
                 if (!room || !room.isMember(socket.userId)) {
                     return socket.emit('error', { message: 'Not authorized to join this room' });
                 }
@@ -287,10 +423,10 @@ module.exports = (io) => {
 
         /**
          * Event: room:leave
-         * Description: Leave a room
+         * Description: Stop receiving a room's live messages
          * Data: { roomId }
          */
-        socket.on('room:leave', (data) => {
+        socket.on('room:leave', (data = {}) => {
             try {
                 const { roomId } = data;
 
@@ -313,20 +449,26 @@ module.exports = (io) => {
         /**
          * Event: message:room
          * Description: Send a message to a room
-         * Data: { roomId, content, type, fileUrl, fileName, fileSize }
+         * Data: { roomId, content, replyTo, tempId }
          */
-        socket.on('message:room', async (data) => {
-            try {
-                const { roomId, content, type, fileUrl, fileName, fileSize } = data;
+        socket.on('message:room', async (data = {}) => {
+            const { roomId, replyTo, tempId } = data;
 
+            try {
                 if (!socket.userId) {
-                    return socket.emit('error', { message: 'Not authenticated' });
+                    return socket.emit('message:error', { tempId, message: 'Not authenticated' });
+                }
+
+                // Validate message text
+                const content = cleanContent(data.content);
+                if (!content) {
+                    return socket.emit('message:error', { tempId, message: 'Message must be 1-5000 characters' });
                 }
 
                 // Check if user is member
-                const room = await Room.findById(roomId);
-                if (!room || !room.isMember(socket.userId)) {
-                    return socket.emit('error', { message: 'Not authorized' });
+                const room = validId(roomId) && await Room.findById(roomId);
+                if (!room || !room.isActive || !room.isMember(socket.userId)) {
+                    return socket.emit('message:error', { tempId, message: 'You are not a member of this room' });
                 }
 
                 // Create message
@@ -334,28 +476,33 @@ module.exports = (io) => {
                     sender: socket.userId,
                     room: roomId,
                     content,
-                    type: type || 'text',
-                    fileUrl: fileUrl || null,
-                    fileName: fileName || null,
-                    fileSize: fileSize || null
+                    type: 'text',
+                    replyTo: validId(replyTo)
                 });
 
-                // Populate sender details
+                // Populate sender and reply details
                 await message.populate('sender', 'username displayName avatar');
+                await message.populate(Message.REPLY_POPULATE);
 
                 // Update room's last message
                 room.lastMessage = message._id;
                 room.stats.messageCount += 1;
                 await room.save();
 
-                // Broadcast to all room members
-                io.to(`room:${roomId}`).emit('message:room:received', message);
+                // Make sure this socket gets future messages from the room
+                socket.join(`room:${roomId}`);
+
+                // Broadcast to the other room members
+                socket.to(`room:${roomId}`).emit('message:room:received', message);
+
+                // Confirm to the sender, with their tempId
+                socket.emit('message:sent', { ...message.toJSON(), tempId });
 
                 console.log(`💬 Room message in ${roomId} from ${socket.userId}`);
 
             } catch (error) {
                 console.error('Room Message Error:', error);
-                socket.emit('error', { message: 'Failed to send room message' });
+                socket.emit('message:error', { tempId, message: 'Failed to send room message' });
             }
         });
 
@@ -366,19 +513,15 @@ module.exports = (io) => {
         /**
          * Event: stranger:search
          * Description: Search for a random stranger to chat with
+         * ("Next" in the client is just another search)
          * Data: { interests } (optional)
          */
         socket.on('stranger:search', (data) => {
             try {
                 const { interests } = data || {};
 
-                // Clean up any previous session (e.g. after the last stranger left)
-                if (socket.anonymousSessionId) {
-                    const oldSessionId = socket.anonymousSessionId;
-                    const queueIndex = waitingQueue.indexOf(oldSessionId);
-                    if (queueIndex > -1) waitingQueue.splice(queueIndex, 1);
-                    anonymousUsers.delete(oldSessionId);
-                }
+                // End any previous session first (tells the old partner they left)
+                endStrangerSession(socket, false);
 
                 // Create anonymous session
                 const sessionId = uuidv4();
@@ -394,7 +537,7 @@ module.exports = (io) => {
                 });
 
                 // Try to find a match
-                const match = findStrangerMatch(sessionId, interests);
+                const match = findStrangerMatch(sessionId);
 
                 if (match) {
                     // Match found! Connect both users
@@ -402,12 +545,12 @@ module.exports = (io) => {
                 } else {
                     // No match, add to waiting queue
                     waitingQueue.push(sessionId);
-                    
+
                     socket.emit('stranger:searching', {
                         sessionId,
                         message: 'Searching for a stranger...'
                     });
-                    
+
                     console.log(`🔍 Stranger ${sessionId} searching...`);
                 }
 
@@ -424,7 +567,7 @@ module.exports = (io) => {
          */
         socket.on('stranger:message', async (data) => {
             try {
-                const content = typeof data?.content === 'string' ? data.content.trim() : '';
+                const content = cleanContent(data && data.content);
                 if (!content) return;
 
                 if (!socket.anonymousSessionId) {
@@ -432,7 +575,7 @@ module.exports = (io) => {
                 }
 
                 const session = anonymousUsers.get(socket.anonymousSessionId);
-                
+
                 if (!session || !session.partnerId) {
                     return socket.emit('error', { message: 'No stranger connected' });
                 }
@@ -497,10 +640,10 @@ module.exports = (io) => {
 
         /**
          * Event: stranger:disconnect
-         * Description: Disconnect from stranger chat
+         * Description: Leave stranger chat (or cancel searching)
          */
         socket.on('stranger:disconnect', () => {
-            handleStrangerDisconnect(socket);
+            endStrangerSession(socket, true);
         });
 
         // ============================================
@@ -512,25 +655,26 @@ module.exports = (io) => {
                 console.log(`🔌 Disconnected: ${socket.id}`);
 
                 // Handle authenticated user disconnect
-                if (socket.userId) {
+                // (only mark offline if no other tab of this user is still open)
+                if (socket.userId && !(await isUserConnected(socket.userId))) {
+                    const lastSeen = new Date();
+
                     // Update user's online status
                     await User.findByIdAndUpdate(socket.userId, {
                         isOnline: false,
-                        lastSeen: new Date(),
+                        lastSeen,
                         socketId: null
                     });
 
                     // Broadcast to all users that this user is offline
                     socket.broadcast.emit('user:offline', {
                         userId: socket.userId,
-                        lastSeen: new Date()
+                        lastSeen
                     });
                 }
 
                 // Handle anonymous user disconnect
-                if (socket.anonymousSessionId) {
-                    handleStrangerDisconnect(socket);
-                }
+                endStrangerSession(socket, false);
 
             } catch (error) {
                 console.error('Disconnect Error:', error);
@@ -546,16 +690,15 @@ module.exports = (io) => {
     /**
      * Find a matching stranger for anonymous chat
      * @param {String} sessionId - Current user's session ID
-     * @param {Array} interests - User's interests
      * @returns {String|null} - Matched session ID or null
      */
-    function findStrangerMatch(sessionId, interests) {
+    function findStrangerMatch(sessionId) {
         // Simple matching: get first person in waiting queue
         // You can enhance this with interest-based matching
-        
+
         for (let i = 0; i < waitingQueue.length; i++) {
             const waitingSessionId = waitingQueue[i];
-            
+
             // Don't match with self
             if (waitingSessionId === sessionId) continue;
 
@@ -607,14 +750,16 @@ module.exports = (io) => {
     }
 
     /**
-     * Handle stranger disconnect
-     * @param {Object} socket - Socket that disconnected
+     * End a socket's stranger session (if it has one)
+     * @param {Object} socket - The socket leaving stranger chat
+     * @param {Boolean} notifySelf - Also send "stranger:ended" back to this socket
      */
-    function handleStrangerDisconnect(socket) {
+    function endStrangerSession(socket, notifySelf) {
         if (!socket.anonymousSessionId) return;
 
-        const session = anonymousUsers.get(socket.anonymousSessionId);
-        
+        const sessionId = socket.anonymousSessionId;
+        const session = anonymousUsers.get(sessionId);
+
         if (session && session.partnerId) {
             // Notify partner
             const partnerSession = anonymousUsers.get(session.partnerId);
@@ -630,19 +775,22 @@ module.exports = (io) => {
         }
 
         // Remove from waiting queue if present
-        const queueIndex = waitingQueue.indexOf(socket.anonymousSessionId);
+        const queueIndex = waitingQueue.indexOf(sessionId);
         if (queueIndex > -1) {
             waitingQueue.splice(queueIndex, 1);
         }
 
         // Remove session
-        anonymousUsers.delete(socket.anonymousSessionId);
-        
-        socket.emit('stranger:disconnected', {
-            message: 'Disconnected from stranger chat.'
-        });
+        anonymousUsers.delete(sessionId);
+        socket.anonymousSessionId = null;
 
-        console.log(`👋 Stranger ${socket.anonymousSessionId} disconnected`);
+        if (notifySelf) {
+            socket.emit('stranger:ended', {
+                message: 'You left the chat.'
+            });
+        }
+
+        console.log(`👋 Stranger ${sessionId} left`);
     }
 
 }; // End of module.exports

@@ -7,6 +7,7 @@
 // Import models
 const Message = require('../models/Message');
 const User = require('../models/User');
+const Room = require('../models/Room');
 
 // ============================================
 // Send Message
@@ -70,7 +71,7 @@ const sendMessage = async (req, res) => {
             await message.populate('receiver', 'username displayName avatar');
         }
         if (replyTo) {
-            await message.populate('replyTo');
+            await message.populate(Message.REPLY_POPULATE);
         }
 
         // Send success response
@@ -127,7 +128,7 @@ const getMessages = async (req, res) => {
                 { sender: req.user._id, receiver: userId },
                 { sender: userId, receiver: req.user._id }
             ],
-            isDeleted: false,
+            deletedFor: { $ne: req.user._id },
             room: null
         });
 
@@ -172,7 +173,16 @@ const getRoomMessages = async (req, res) => {
     try {
         // Get room ID from URL parameters
         const { roomId } = req.params;
-        
+
+        // Only members can read a room's messages
+        const room = await Room.findById(roomId);
+        if (!room || !room.isMember(req.user._id)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Join this room to see its messages'
+            });
+        }
+
         // Get pagination parameters
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 50;
@@ -181,18 +191,18 @@ const getRoomMessages = async (req, res) => {
         // Find messages in room
         const messages = await Message.find({
             room: roomId,
-            isDeleted: false
+            deletedFor: { $ne: req.user._id } // Hide messages this user deleted for themselves
         })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .populate('sender', 'username displayName avatar')
-        .populate('replyTo');
+        .populate(Message.REPLY_POPULATE);
 
         // Get total count
         const totalMessages = await Message.countDocuments({
             room: roomId,
-            isDeleted: false
+            deletedFor: { $ne: req.user._id }
         });
 
         // Calculate total pages

@@ -148,9 +148,33 @@ const messageSchema = new mongoose.Schema(
     },
     {
         // Add createdAt and updatedAt timestamps
-        timestamps: true
+        timestamps: true,
+
+        // When a message is sent to the client (API response or socket event),
+        // hide the text of messages that were "deleted for everyone".
+        // The client then shows "This message was deleted" in its place.
+        toJSON: {
+            transform(doc, ret) {
+                if (ret.isDeleted) {
+                    ret.content = '';
+                    ret.fileUrl = null;
+                }
+                if (ret.replyTo && ret.replyTo.isDeleted) {
+                    ret.replyTo.content = '';
+                }
+                delete ret.deletedFor; // Private to each user
+                return ret;
+            }
+        }
     }
 );
+
+// Fields to load for a quoted (replied-to) message
+messageSchema.statics.REPLY_POPULATE = {
+    path: 'replyTo',
+    select: 'content sender isDeleted type',
+    populate: { path: 'sender', select: 'username displayName' }
+};
 
 // ============================================
 // Indexes for Better Performance
@@ -260,14 +284,15 @@ messageSchema.statics.getPrivateMessages = function(userId1, userId2, limit = 50
             { sender: userId1, receiver: userId2 },
             { sender: userId2, receiver: userId1 }
         ],
-        isDeleted: false, // Don't show deleted messages
+        deletedFor: { $ne: userId1 }, // Hide messages the viewer deleted for themselves
         room: null // Only private messages (no room)
+        // Messages deleted for everyone are kept, their text is hidden by toJSON
     })
     .sort({ createdAt: -1 }) // Sort by newest first
     .limit(limit) // Limit number of results
     .populate('sender', 'username displayName avatar') // Get sender details
     .populate('receiver', 'username displayName avatar') // Get receiver details
-    .populate('replyTo'); // Get replied message details
+    .populate(this.REPLY_POPULATE); // Get replied message details
 };
 
 /**

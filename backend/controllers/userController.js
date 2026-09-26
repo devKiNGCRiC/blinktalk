@@ -80,9 +80,14 @@ const updateProfile = async (req, res) => {
         if (displayName !== undefined) user.displayName = displayName;
         if (bio !== undefined) user.bio = bio;
         if (avatar !== undefined) user.avatar = avatar;
-        if (preferences !== undefined) {
-            // Update preferences object
-            user.preferences = { ...user.preferences, ...preferences };
+        if (preferences !== undefined && preferences !== null) {
+            // Update each known preference key separately
+            // (spreading a Mongoose subdocument would copy internal fields, not the values)
+            for (const key of ['notifications', 'sounds', 'theme']) {
+                if (preferences[key] !== undefined) {
+                    user.preferences[key] = preferences[key];
+                }
+            }
         }
 
         // Save updated user
@@ -99,6 +104,14 @@ const updateProfile = async (req, res) => {
 
     } catch (error) {
         // Handle errors
+        // Invalid values (e.g. unknown theme) are the client's mistake, not a server error
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({
+                success: false,
+                message: Object.values(error.errors)[0].message
+            });
+        }
+
         console.error('Update Profile Error:', error);
         res.status(500).json({
             success: false,
@@ -184,7 +197,7 @@ const getContacts = async (req, res) => {
                 { receiver: req.user._id }
             ],
             room: null, // Only private messages
-            isDeleted: false
+            deletedFor: { $ne: req.user._id } // Skip messages this user deleted for themselves
         })
         .populate('sender', 'username displayName avatar isOnline lastSeen')
         .populate('receiver', 'username displayName avatar isOnline lastSeen')
@@ -194,6 +207,9 @@ const getContacts = async (req, res) => {
         const contactsMap = new Map();
         
         for (const message of messages) {
+            // Skip messages whose sender/receiver account no longer exists
+            if (!message.sender || !message.receiver) continue;
+
             // Determine the other user (not current user)
             const otherUser = message.sender._id.toString() === req.user._id.toString() 
                 ? message.receiver 
@@ -208,11 +224,33 @@ const getContacts = async (req, res) => {
             contactsMap.set(otherUser._id.toString(), {
                 user: otherUser,
                 lastMessage: {
-                    content: message.content,
+                    content: message.isDeleted ? '' : message.content,
+                    isDeleted: message.isDeleted,
+                    fromMe: message.sender._id.toString() === req.user._id.toString(),
                     createdAt: message.createdAt,
                     isRead: message.isRead
-                }
+                },
+                unreadCount: 0
             });
+        }
+
+        // Count unread messages per contact in a single aggregation
+        // Result: [{ _id: senderId, count: 3 }, ...]
+        const unreadCounts = await Message.aggregate([
+            {
+                $match: {
+                    receiver: req.user._id,
+                    room: null,
+                    isRead: false,
+                    isDeleted: false
+                }
+            },
+            { $group: { _id: '$sender', count: { $sum: 1 } } }
+        ]);
+
+        for (const { _id, count } of unreadCounts) {
+            const contact = contactsMap.get(_id.toString());
+            if (contact) contact.unreadCount = count;
         }
 
         // Convert map to array

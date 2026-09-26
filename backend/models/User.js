@@ -107,11 +107,11 @@ const userSchema = new mongoose.Schema(
                 default: true
             },
             
-            // Theme preference
+            // Theme preference - one of the theme presets in the client
             theme: {
                 type: String,
-                enum: ['light', 'dark', 'auto'], // Allowed values
-                default: 'auto'
+                enum: ['midnight', 'sunset', 'light', 'matcha', 'y2k'], // Allowed values
+                default: 'midnight'
             }
         },
 

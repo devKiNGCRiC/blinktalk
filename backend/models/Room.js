@@ -314,7 +314,10 @@ roomSchema.statics.getUserRooms = function(userId) {
     })
     .sort({ updatedAt: -1 }) // Sort by most recent activity
     .populate('creator', 'username displayName avatar')
-    .populate('lastMessage')
+    .populate({
+        path: 'lastMessage',
+        populate: { path: 'sender', select: 'username displayName' }
+    })
     .populate('members.user', 'username displayName avatar isOnline');
 };
 

@@ -61,9 +61,9 @@ app.use(express.json());
 // Body parser for URL-encoded data (form submissions)
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files from frontend folder
-// This makes our HTML, CSS, JS files accessible
-app.use(express.static(path.join(__dirname, '../frontend')));
+// Serve the built React app (created by `npm run build` in client/dist)
+const CLIENT_DIST = path.join(__dirname, '../client/dist');
+app.use(express.static(CLIENT_DIST));
 
 // ============================================
 // Database Connection
@@ -143,10 +143,20 @@ socketHandler(io);
 // Serve Frontend
 // ============================================
 
-// Catch-all route - serves index.html for any unmatched routes
+// Unknown API routes return JSON 404 (not the web page)
+app.use('/api', (req, res) => {
+    res.status(404).json({ success: false, message: 'API route not found' });
+});
+
+// Catch-all route - serves the React app's index.html for any other route
 // This enables client-side routing
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+    res.sendFile(path.join(CLIENT_DIST, 'index.html'), (error) => {
+        if (error) {
+            // The React app hasn't been built yet
+            res.status(404).send('Frontend not built. Run `npm run build`, or use `npm run dev` during development.');
+        }
+    });
 });
 
 // ============================================
