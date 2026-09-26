@@ -1,0 +1,44 @@
+{
+  "name": "blinktalk",
+  "version": "1.0.0",
+  "description": "Real-time chat application with anonymous stranger chat feature",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "nodemon backend/server.js",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": [
+    "chat",
+    "real-time",
+    "socket.io",
+    "anonymous",
+    "nodejs"
+  ],
+  "author": "devKiNGCRiC",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.6.1",
+    "mongoose": "^8.0.3",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "multer": "^1.4.5-lts.1",
+    "cloudinary": "^1.41.0",
+    "express-validator": "^7.0.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/devKiNGCRiC/blinktalk.git"
+  },
+  "homepage": "https://github.com/devKiNGCRiC/blinktalk#readme",
+  "engines": {
+    "node": ">=18"
+  }
+}
