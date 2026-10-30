@@ -7,7 +7,7 @@ import Composer from '../../components/Composer';
 import Avatar from '../../components/Avatar';
 import Modal from '../../components/Modal';
 import { formatClock } from '../../lib/format';
-import { flagOf, countryName } from '../../lib/countries';
+import { countryName } from '../../lib/countries';
 import { looksLikeContactInfo } from '../../lib/contactInfo';
 import { buildTranscript, downloadText } from '../../lib/transcript';
 import styles from './StrangerPanel.module.css';
@@ -42,13 +42,11 @@ function PartnerTitle({ partner, phase, typing }) {
         <>
             <Avatar src={partner.avatar} name={partner.displayName} size={42} />
             <div className={styles.title}>
-                <h2>
-                    {partner.displayName}
-                    {partner.country && (
-                        <span className={styles.flag} title={countryName(partner.country)}> {flagOf(partner.country)}</span>
-                    )}
-                </h2>
-                <p className={statusClass}>{status}</p>
+                <h2>{partner.displayName}</h2>
+                <p>
+                    <span className={statusClass}>{status}</span>
+                    {partner.country && <span className={styles.country}> · {countryName(partner.country)}</span>}
+                </p>
             </div>
         </>
     );
@@ -240,7 +238,7 @@ export default function StrangerChat({ stranger, active, guest, onNext, onOpenFr
                             <Flag size={20} />
                         </button>
                     )}
-                    {isConnected ? (
+                    {isConnected && (
                         <>
                             <button className="btn btn-ghost" onClick={onNext} title="Skip to a new stranger (Esc Esc)">
                                 <SkipForward size={18} />
@@ -250,11 +248,6 @@ export default function StrangerChat({ stranger, active, guest, onNext, onOpenFr
                                 <LogOut size={20} />
                             </button>
                         </>
-                    ) : (
-                        <button className="btn btn-primary" onClick={onNext} disabled={!connected}>
-                            <Sparkles size={18} />
-                            New chat
-                        </button>
                     )}
                 </div>
             </header>
@@ -288,13 +281,23 @@ export default function StrangerChat({ stranger, active, guest, onNext, onOpenFr
 
             {escArmed && <div className={styles.escHint} role="status">Press Esc again to skip</div>}
 
-            <Composer
-                focusKey={phase}
-                onSend={send}
-                onTyping={stranger.typing}
-                disabled={!isConnected || !active}
-                placeholder={isConnected ? 'Say something nice' : 'Start a new chat to talk'}
-            />
+            {isConnected ? (
+                <Composer
+                    focusKey={phase}
+                    onSend={send}
+                    onTyping={stranger.typing}
+                    disabled={!active}
+                    placeholder="Say something nice"
+                />
+            ) : (
+                <footer className={styles.endBar}>
+                    <p>This chat has ended.</p>
+                    <button className="btn btn-primary" onClick={onNext} disabled={!connected}>
+                        <Sparkles size={18} />
+                        New chat
+                    </button>
+                </footer>
+            )}
 
             {reporting && (
                 <Modal title="Report this stranger" onClose={() => setReporting(false)} size="sm">

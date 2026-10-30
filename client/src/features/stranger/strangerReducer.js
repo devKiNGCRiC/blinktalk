@@ -51,13 +51,16 @@ export function strangerReducer(state, action) {
         case 'SEARCHING':
             return state.phase === 'connected' ? state : { ...state, phase: 'searching' };
 
-        case 'CONNECTED':
+        case 'CONNECTED': {
+            const who = action.partner?.registered ? action.partner.displayName : 'a stranger';
             return {
                 ...freshSearch(state),
                 phase: 'connected',
                 partner: action.partner,
-                icebreaker: action.icebreaker || null
+                icebreaker: action.icebreaker || null,
+                lines: [systemLine(`You’re now chatting with ${who}. Say hi 👋`)]
             };
+        }
 
         case 'MESSAGE':
             return {

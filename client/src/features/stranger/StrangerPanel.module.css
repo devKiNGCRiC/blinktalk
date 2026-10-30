@@ -400,8 +400,26 @@
     animation: bubble-in 0.2s var(--ease-spring);
 }
 
-.flag {
+.country {
+    color: var(--text-muted);
     font-weight: 400;
+}
+
+.endBar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+}
+
+.endBar p {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    font-weight: 600;
 }
 
 .pulse {

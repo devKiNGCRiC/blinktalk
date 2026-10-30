@@ -100,7 +100,7 @@ function ProfileForm() {
                 {choices.map(url => (
                     <label key={url} className={`${styles.avatarChoice} ${avatar === url ? styles.avatarActive : ''}`}>
                         <input type="radio" name="avatar" checked={avatar === url} onChange={() => setAvatar(url)} />
-                        <Avatar src={url} name={user.username} size={48} />
+                        <Avatar src={url} name={displayName || user.username} size={48} />
                         <span className="visually-hidden">Avatar option</span>
                     </label>
                 ))}
@@ -120,7 +120,7 @@ function ProfileForm() {
                 <legend>Stranger chat</legend>
                 <p className={styles.muted}>
                     Optional. Lets people who filter by gender or country find you, and matches you
-                    sooner with people who speak your language. Strangers see your country flag.
+                    sooner with people who speak your language. Strangers see your country.
                 </p>
                 <div className={styles.detailGrid}>
                     <label className="field">
@@ -134,7 +134,7 @@ function ProfileForm() {
                         <span>Country</span>
                         <select className="input" value={country} onChange={e => setCountry(e.target.value)}>
                             <option value="">Prefer not to say</option>
-                            {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.name}</option>)}
+                            {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
                         </select>
                     </label>
                     <label className="field">

@@ -181,49 +181,52 @@ export default function AuthScreen() {
             </button>
             <div className={styles.glow} aria-hidden="true" />
 
-            <section className={styles.hero}>
-                <Logo size={36} />
-                <h1 className={styles.headline}>
-                    Met someone fun?
-                    <br />
-                    Keep them.
-                </h1>
-                <p className={styles.lede}>
-                    With an account you get unlimited chats, gender and country filters, more interests, and friends you can message any time.
-                </p>
-                <div className={styles.demo}>
-                    <DemoChat />
-                </div>
-            </section>
-
-            <section className={styles.cardWrap}>
-                <div className={styles.card}>
-                    <div className={styles.tabs} role="tablist">
-                        <button
-                            role="tab"
-                            aria-selected={mode === 'login'}
-                            className={mode === 'login' ? styles.activeTab : ''}
-                            onClick={() => setMode('login')}
-                        >
-                            Log in
-                        </button>
-                        <button
-                            role="tab"
-                            aria-selected={mode === 'signup'}
-                            className={mode === 'signup' ? styles.activeTab : ''}
-                            onClick={() => setMode('signup')}
-                        >
-                            Sign up
-                        </button>
-                    </div>
-
-                    {mode === 'login' ? <LoginForm /> : <SignupForm />}
-
-                    <p className={styles.note}>
-                        Or <button className={styles.link} onClick={closeAuth}>keep chatting without an account</button>
+            {/* Full-screen backdrop scrolls; the content stays centered */}
+            <div className={styles.layout}>
+                <section className={styles.hero}>
+                    <Logo size={36} />
+                    <h1 className={styles.headline}>
+                        Met someone fun?
+                        <br />
+                        Keep them.
+                    </h1>
+                    <p className={styles.lede}>
+                        With an account you get unlimited chats, gender and country filters, more interests, and friends you can message any time.
                     </p>
-                </div>
-            </section>
+                    <div className={styles.demo}>
+                        <DemoChat />
+                    </div>
+                </section>
+
+                <section className={styles.cardWrap}>
+                    <div className={styles.card}>
+                        <div className={styles.tabs} role="tablist">
+                            <button
+                                role="tab"
+                                aria-selected={mode === 'login'}
+                                className={mode === 'login' ? styles.activeTab : ''}
+                                onClick={() => setMode('login')}
+                            >
+                                Log in
+                            </button>
+                            <button
+                                role="tab"
+                                aria-selected={mode === 'signup'}
+                                className={mode === 'signup' ? styles.activeTab : ''}
+                                onClick={() => setMode('signup')}
+                            >
+                                Sign up
+                            </button>
+                        </div>
+
+                        {mode === 'login' ? <LoginForm /> : <SignupForm />}
+
+                        <p className={styles.note}>
+                            Or <button className={styles.link} onClick={closeAuth}>keep chatting without an account</button>
+                        </p>
+                    </div>
+                </section>
+            </div>
         </div>
     );
 }

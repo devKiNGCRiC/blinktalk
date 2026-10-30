@@ -49,7 +49,7 @@ function ChatHeader({ onUnfriend }) {
                 </p>
             </div>
             {active.type === 'private' && (
-                <button className="icon-btn" onClick={onUnfriend} aria-label="Unfriend" title="Unfriend">
+                <button className={`icon-btn ${styles.headerEnd}`} onClick={onUnfriend} aria-label="Unfriend" title="Unfriend">
                     <UserMinus size={20} />
                 </button>
             )}

@@ -1,5 +1,6 @@
 // Countries and languages for profiles and stranger chat filters.
 // Names come from the browser (Intl.DisplayNames), so only the codes live here.
+// (No flag emoji: Windows shows them as plain letters like "IN".)
 
 const COUNTRY_CODES = (
     'AF AL DZ AD AO AG AR AM AU AT AZ BS BH BD BB BY BE BZ BJ BT BO BA BW BR BN BG BF BI CV KH CM CA CF TD CL CN CO KM CG CD CR CI HR CU CY CZ ' +
@@ -14,12 +15,6 @@ const LANGUAGE_CODES = [
     'it', 'ru', 'ar', 'tr', 'ja', 'ko', 'zh', 'id', 'vi', 'th', 'fa', 'pl', 'nl'
 ];
 
-/** "IN" → 🇮🇳 */
-export function flagOf(code) {
-    if (!/^[A-Z]{2}$/.test(code || '')) return '';
-    return String.fromCodePoint(...[...code].map(letter => 0x1f1e6 + letter.charCodeAt(0) - 65));
-}
-
 function displayNames(type) {
     try {
         return new Intl.DisplayNames(['en'], { type });
@@ -32,7 +27,7 @@ const regionNames = displayNames('region');
 const languageNames = displayNames('language');
 
 export const COUNTRIES = COUNTRY_CODES
-    .map(code => ({ code, name: regionNames.of(code) || code, flag: flagOf(code) }))
+    .map(code => ({ code, name: regionNames.of(code) || code }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
 export const LANGUAGES = LANGUAGE_CODES

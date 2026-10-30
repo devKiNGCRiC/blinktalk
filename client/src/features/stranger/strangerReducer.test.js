@@ -9,24 +9,26 @@ describe('strangerReducer', () => {
     test('CONNECTED clears old lines and stores partner and icebreaker', () => {
         const state = run(connected, message('a', 'you'), { type: 'SEARCH' }, connected);
         expect(state.phase).toBe('connected');
-        expect(state.lines).toEqual([]);
+        expect(state.lines.map(line => line.kind)).toEqual(['system']);
+        expect(state.lines[0].text).toMatch(/stranger/i);
         expect(state.partner).toEqual({ registered: false });
         expect(state.icebreaker).toBe('Cats or dogs?');
     });
 
     test('messages from you are mine, from the stranger are theirs, and stop typing', () => {
         const state = run(connected, { type: 'TYPING', on: true }, message('a', 'you'), message('b', 'stranger'));
-        expect(state.lines.map(line => line.kind)).toEqual(['me', 'them']);
+        expect(state.lines.map(line => line.kind)).toEqual(['system', 'me', 'them']);
         expect(state.typing).toBe(false);
     });
 
     test('reactions land on the right message and null clears them', () => {
         let state = run(connected, message('a', 'you'), message('b', 'stranger'));
         state = strangerReducer(state, { type: 'REACTION', messageId: 'a', emoji: '😂', from: 'stranger' });
-        expect(state.lines[0].reaction).toEqual({ mine: null, theirs: '😂' });
-        expect(state.lines[1].reaction).toEqual({ mine: null, theirs: null });
+        const line = id => state.lines.find(l => l.id === id);
+        expect(line('a').reaction).toEqual({ mine: null, theirs: '😂' });
+        expect(line('b').reaction).toEqual({ mine: null, theirs: null });
         state = strangerReducer(state, { type: 'REACTION', messageId: 'a', emoji: null, from: 'stranger' });
-        expect(state.lines[0].reaction.theirs).toBe(null);
+        expect(line('a').reaction.theirs).toBe(null);
     });
 
     test('partner leaving ends the chat and cancels a pending friend request', () => {
@@ -75,4 +77,9 @@ describe('strangerReducer', () => {
         expect(left.phase).toBe('ended');
         expect(left.lines.at(-1).text).toBe('You left the chat.');
     });
+});
+
+test('a signed-up partner is greeted by name', () => {
+    const state = strangerReducer(initialStrangerState, { type: 'CONNECTED', partner: { registered: true, displayName: 'Cleo' } });
+    expect(state.lines[0].text).toMatch(/Cleo/);
 });

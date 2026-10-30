@@ -138,7 +138,7 @@ export default function StrangerIntro({ guest, online, limit, bannedUntil, conne
                             {guest ? 'Your interest (optional)' : 'Your interests (optional, up to 5)'}
                         </span>
                         <InterestInput tags={tags} setTags={setTags} max={maxTags} />
-                        <span className={styles.hint}>We look for someone who shares one for a few seconds, then anyone.</span>
+                        <small className={styles.hint}>We look for someone who shares one for a few seconds, then anyone.</small>
                     </div>
 
                     {guest ? (
@@ -159,7 +159,7 @@ export default function StrangerIntro({ guest, online, limit, bannedUntil, conne
                                 <span className={styles.label}>From</span>
                                 <select className="input" value={country} onChange={event => setCountry(event.target.value)}>
                                     <option value="">Anywhere</option>
-                                    {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.name}</option>)}
+                                    {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
                                 </select>
                             </label>
                         </div>
