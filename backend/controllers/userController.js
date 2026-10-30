@@ -66,7 +66,7 @@ const getUserProfile = async (req, res) => {
 const updateProfile = async (req, res) => {
     try {
         // Extract updatable fields from request body
-        const { displayName, bio, avatar, preferences } = req.body;
+        const { displayName, bio, avatar, preferences, gender, country, language } = req.body;
 
         // Get current user
         const user = await User.findById(req.user._id);
@@ -82,6 +82,11 @@ const updateProfile = async (req, res) => {
         if (displayName !== undefined) user.displayName = displayName;
         if (bio !== undefined) user.bio = bio;
         if (avatar !== undefined) user.avatar = avatar;
+
+        // Stranger chat filter details: '' means "prefer not to say"
+        if (gender !== undefined) user.gender = gender || null;
+        if (country !== undefined) user.country = country || null;
+        if (language !== undefined) user.language = language || null;
         if (preferences !== undefined && preferences !== null) {
             // Update each known preference key separately
             // (spreading a Mongoose subdocument would copy internal fields, not the values)

@@ -9,13 +9,13 @@ const assert = require('node:assert/strict');
 const { startServer, client, waitFor, staysQuiet, sleep } = require('./helpers');
 
 const PORT = 5058;
-const { connectSocket, createUser } = client(PORT);
+const { api, connectSocket, createUser } = client(PORT);
 
 let server;
 let open = [];
 
 before(async () => {
-    server = await startServer({ port: PORT, env: { ANON_DAILY_LIMIT: '4' } });
+    server = await startServer({ port: PORT, env: { ANON_DAILY_LIMIT: '4', AUTH_RATE_LIMIT: '8' } });
 });
 
 after(async () => {
@@ -76,5 +76,17 @@ describe('daily chat limit', () => {
         assert.equal(info.limit, 4);
         assert.ok(new Date(info.resetsAt) > new Date());
         assert.ok(await staysQuiet(third, 'stranger:searching', 300));
+    });
+});
+
+describe('auth rate limit', () => {
+    // 3 registrations above already used 3 of the 8 attempts
+    test('too many login attempts from one IP get 429', async () => {
+        const statuses = [];
+        for (let i = 0; i < 6; i++) {
+            statuses.push((await api('POST', '/api/auth/login', { identifier: 'nobody', password: 'Wrong123' })).status);
+        }
+        assert.equal(statuses.at(-1), 429);
+        assert.ok(statuses.includes(401));
     });
 });

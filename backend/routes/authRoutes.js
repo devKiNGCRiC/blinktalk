@@ -20,6 +20,7 @@ const {
 
 // Import middleware
 const { protect } = require('../middleware/auth');
+const { authRateLimit } = require('../middleware/rateLimit');
 const {
     validateRegistration,
     validateLogin,
@@ -34,17 +35,17 @@ const {
  * @route   POST /api/auth/register
  * @desc    Register a new user
  * @access  Public
- * Flow: Request -> Validation -> Controller
+ * Flow: Request -> Rate limit -> Validation -> Controller
  */
-router.post('/register', validateRegistration, register);
+router.post('/register', authRateLimit, validateRegistration, register);
 
 /**
  * @route   POST /api/auth/login
  * @desc    Login user
  * @access  Public
- * Flow: Request -> Validation -> Controller
+ * Flow: Request -> Rate limit -> Validation -> Controller
  */
-router.post('/login', validateLogin, login);
+router.post('/login', authRateLimit, validateLogin, login);
 
 /**
  * @route   GET /api/auth/me

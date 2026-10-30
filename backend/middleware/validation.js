@@ -80,6 +80,10 @@ const validateRegistration = [
             return true;
         }),
 
+    // Must confirm they are 18+ and accept the rules
+    body('acceptedTerms')
+        .custom(value => value === true).withMessage('Please confirm you are 18+ and accept the rules'),
+
     // Handle validation errors
     handleValidationErrors
 ];
@@ -125,6 +129,17 @@ const validateProfileUpdate = [
         .optional()
         .trim()
         .isLength({ max: 200 }).withMessage('Bio must not exceed 200 characters'),
+
+    // Stranger chat filter details (optional, '' clears them)
+    body('gender')
+        .optional()
+        .isIn(['', 'male', 'female', 'nonbinary']).withMessage('Please choose a valid gender'),
+    body('country')
+        .optional()
+        .matches(/^([A-Z]{2})?$/).withMessage('Please choose a valid country'),
+    body('language')
+        .optional()
+        .matches(/^([a-z]{2})?$/).withMessage('Please choose a valid language'),
 
     // Validate avatar URL (optional)
     body('avatar')

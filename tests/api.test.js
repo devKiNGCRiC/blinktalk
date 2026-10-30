@@ -50,7 +50,7 @@ describe('server and authentication', () => {
 
     test('register, login (dotted gmail) and verify', async () => {
         const reg = await api('POST', '/api/auth/register', {
-            username: 'dotty', email: 'dot.ty@gmail.com', password: 'Test123', confirmPassword: 'Test123'
+            username: 'dotty', email: 'dot.ty@gmail.com', password: 'Test123', confirmPassword: 'Test123', acceptedTerms: true
         });
         assert.equal(reg.status, 201);
 
@@ -95,6 +95,29 @@ describe('server and authentication', () => {
         const received = waitFor(receiver.socket, 'message:received');
         s.emit('message:private', { receiverId: receiver.id, content: 'queued hello', tempId: 'q1' });
         assert.equal((await received).content, 'queued hello');
+    });
+
+    test('signup requires accepting the 18+ rules', async () => {
+        const res = await api('POST', '/api/auth/register', {
+            username: 'noterms', email: 'noterms@example.com', password: 'Test123', confirmPassword: 'Test123'
+        });
+        assert.equal(res.status, 400);
+    });
+
+    test('gender, country and language can be saved and cleared', async () => {
+        const u = await user('profiler');
+        const res = await api('PUT', '/api/users/profile', { gender: 'female', country: 'IN', language: 'hi' }, u.token);
+        assert.equal(res.status, 200);
+        const me = await api('GET', '/api/auth/me', null, u.token);
+        const saved = me.body.data.user;
+        assert.deepEqual([saved.gender, saved.country, saved.language], ['female', 'IN', 'hi']);
+
+        assert.equal((await api('PUT', '/api/users/profile', { country: 'india' }, u.token)).status, 400);
+        assert.equal((await api('PUT', '/api/users/profile', { gender: 'robot' }, u.token)).status, 400);
+
+        const cleared = await api('PUT', '/api/users/profile', { gender: '', country: '', language: '' }, u.token);
+        assert.equal(cleared.body.data.user.gender, null);
+        assert.equal(cleared.body.data.user.country, null);
     });
 
     test('theme preference can be saved', async () => {

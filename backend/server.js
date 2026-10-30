@@ -34,6 +34,9 @@ dotenv.config();
 // ============================================
 const app = express();
 
+// Behind a proxy (Render, Railway, Nginx...) use the real client IP for rate limits
+if (process.env.TRUST_PROXY === '1') app.set('trust proxy', 1);
+
 // Create HTTP server using Express app
 const server = http.createServer(app);
 

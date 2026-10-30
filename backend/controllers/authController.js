@@ -49,7 +49,8 @@ const register = async (req, res) => {
             email: email.toLowerCase(),
             password,
             displayName: displayName || username, // Use username if displayName not provided
-            avatar: `https://ui-avatars.com/api/?background=random&name=${username}` // Generate avatar
+            avatar: `https://ui-avatars.com/api/?background=random&name=${username}`, // Generate avatar
+            acceptedTermsAt: new Date() // Validation already checked acceptedTerms
         });
 
         // Step 5: Generate JWT token for the user
