@@ -1,67 +1,30 @@
-/* ---------- Idle ---------- */
+/* ---------- Searching ---------- */
 
-.intro,
 .searching {
     flex: 1;
     display: grid;
     place-content: center;
     justify-items: center;
     gap: 14px;
-    padding: 32px 20px;
+    padding: 32px 16px;
     text-align: center;
 }
 
-.intro h1 {
-    font-size: clamp(2rem, 4vw, 3rem);
-    font-weight: 700;
-    letter-spacing: -0.03em;
-}
-
-.intro > p,
 .searching p {
     max-width: 42ch;
     color: var(--text-muted);
 }
 
-.intro :global(.btn) {
-    margin-top: 8px;
-    padding: 14px 28px;
-    font-size: var(--text-md);
+.searchActions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
 }
 
-.introIcon {
-    display: grid;
-    place-items: center;
-    width: 84px;
-    height: 84px;
-    border-radius: 28px;
-    background: var(--accent-gradient);
-    color: var(--on-accent);
-    box-shadow: var(--glow);
-    transform: rotate(-6deg);
-}
-
-.tips {
-    list-style: none;
-    margin: 16px 0 0;
-    padding: 0;
-    display: grid;
-    gap: 6px;
+.onlineCount {
     font-size: var(--text-sm);
-    color: var(--text-muted);
-}
-
-.signup {
-    margin-top: 12px;
-    font-size: var(--text-sm);
-    color: var(--text-muted);
-}
-
-.signup button {
-    color: var(--accent);
-    font-weight: 700;
-    text-decoration: underline;
-    text-underline-offset: 3px;
+    font-weight: 600;
 }
 
 /* ---------- Searching: radar ---------- */
