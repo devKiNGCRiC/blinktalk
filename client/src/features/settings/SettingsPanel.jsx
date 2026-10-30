@@ -8,6 +8,7 @@ import * as authApi from '../../api/auth';
 import { errorMessage } from '../../api/client';
 import { THEMES } from '../../lib/theme';
 import { checkPassword, isStrongPassword } from '../../lib/password';
+import { COUNTRIES, LANGUAGES, GENDERS } from '../../lib/countries';
 import Avatar from '../../components/Avatar';
 import styles from './SettingsPanel.module.css';
 
@@ -57,15 +58,21 @@ function ProfileForm() {
     const [displayName, setDisplayName] = useState(user.displayName || '');
     const [bio, setBio] = useState(user.bio || '');
     const [avatar, setAvatar] = useState(user.avatar);
+    const [gender, setGender] = useState(user.gender || '');
+    const [country, setCountry] = useState(user.country || '');
+    const [language, setLanguage] = useState(user.language || '');
     const [busy, setBusy] = useState(false);
 
-    const changed = displayName !== (user.displayName || '') || bio !== (user.bio || '') || avatar !== user.avatar;
+    const changed = displayName !== (user.displayName || '') || bio !== (user.bio || '') || avatar !== user.avatar
+        || gender !== (user.gender || '') || country !== (user.country || '') || language !== (user.language || '');
 
     async function save(event) {
         event.preventDefault();
         setBusy(true);
         try {
-            const updated = await usersApi.updateProfile({ displayName: displayName.trim(), bio: bio.trim(), avatar });
+            const updated = await usersApi.updateProfile({
+                displayName: displayName.trim(), bio: bio.trim(), avatar, gender, country, language
+            });
             updateUser(updated);
             toast.success('Profile saved');
         } catch (error) {
@@ -108,6 +115,37 @@ function ProfileForm() {
                 <textarea className="input" value={bio} onChange={e => setBio(e.target.value)} maxLength={200} rows={2} />
                 <small className={styles.counter}>{bio.length}/200</small>
             </label>
+
+            <fieldset className={styles.details}>
+                <legend>Stranger chat</legend>
+                <p className={styles.muted}>
+                    Optional. Lets people who filter by gender or country find you, and matches you
+                    sooner with people who speak your language. Strangers see your country flag.
+                </p>
+                <div className={styles.detailGrid}>
+                    <label className="field">
+                        <span>I am</span>
+                        <select className="input" value={gender} onChange={e => setGender(e.target.value)}>
+                            <option value="">Prefer not to say</option>
+                            {GENDERS.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
+                        </select>
+                    </label>
+                    <label className="field">
+                        <span>Country</span>
+                        <select className="input" value={country} onChange={e => setCountry(e.target.value)}>
+                            <option value="">Prefer not to say</option>
+                            {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.name}</option>)}
+                        </select>
+                    </label>
+                    <label className="field">
+                        <span>Language</span>
+                        <select className="input" value={language} onChange={e => setLanguage(e.target.value)}>
+                            <option value="">Any</option>
+                            {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.name}</option>)}
+                        </select>
+                    </label>
+                </div>
+            </fieldset>
             <div>
                 <button className="btn btn-primary" disabled={busy || !changed}>
                     {busy ? 'Saving…' : 'Save profile'}

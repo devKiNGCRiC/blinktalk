@@ -43,3 +43,24 @@
 .list .danger svg {
     color: var(--danger);
 }
+
+.reactions {
+    display: flex;
+    justify-content: space-between;
+    gap: 4px;
+    margin-bottom: 12px;
+    padding: 6px;
+    border-radius: 999px;
+    background: var(--surface-2);
+}
+
+.reactions button {
+    flex: 1;
+    height: 44px;
+    border-radius: 999px;
+    font-size: 1.4rem;
+}
+
+.reactions button:hover {
+    background: var(--surface-3);
+}

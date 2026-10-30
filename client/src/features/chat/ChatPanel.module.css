@@ -79,3 +79,14 @@
         display: inline-grid;
     }
 }
+
+.confirmText {
+    margin-bottom: 16px;
+    color: var(--text-muted);
+}
+
+.confirmActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}

@@ -1,15 +1,16 @@
 import { useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, UserMinus } from 'lucide-react';
 import { useChat } from '../../context/ChatContext';
 import Avatar from '../../components/Avatar';
 import Composer from '../../components/Composer';
+import Modal from '../../components/Modal';
 import MessageList from './MessageList';
 import MessageActions from './MessageActions';
 import { formatLastSeen } from '../../lib/format';
 import { LogoMark } from '../../components/Logo';
 import styles from './ChatPanel.module.css';
 
-function ChatHeader() {
+function ChatHeader({ onUnfriend }) {
     const chat = useChat();
     const { active } = chat;
     const typing = chat.typing[chat.activeKey];
@@ -47,6 +48,11 @@ function ChatHeader() {
                     {status}
                 </p>
             </div>
+            {active.type === 'private' && (
+                <button className="icon-btn" onClick={onUnfriend} aria-label="Unfriend" title="Unfriend">
+                    <UserMinus size={20} />
+                </button>
+            )}
         </header>
     );
 }
@@ -55,8 +61,8 @@ function EmptyChat() {
     return (
         <div className={styles.emptyState}>
             <LogoMark size={72} />
-            <h2>Pick a chat to start talking</h2>
-            <p>Your conversations show up on the left. Search for a friend by name, or hop into a room.</p>
+            <h2>Pick a friend to keep talking</h2>
+            <p>Friends you make in stranger chat show up on the left. Tap one to pick up where you left off.</p>
         </div>
     );
 }
@@ -64,6 +70,7 @@ function EmptyChat() {
 export default function ChatPanel() {
     const chat = useChat();
     const [actionsFor, setActionsFor] = useState(null);
+    const [confirmUnfriend, setConfirmUnfriend] = useState(false);
 
     if (!chat.active) {
         return (
@@ -78,7 +85,7 @@ export default function ChatPanel() {
 
     return (
         <main className={styles.panel} data-pane="chat">
-            <ChatHeader />
+            <ChatHeader onUnfriend={() => setConfirmUnfriend(true)} />
             <MessageList
                 key={chat.activeKey}
                 messages={messages}
@@ -87,6 +94,7 @@ export default function ChatPanel() {
                 onReply={chat.setReplyTo}
                 onActions={setActionsFor}
                 onRetry={chat.retryMessage}
+                onReact={isRoom ? undefined : chat.react}
                 emptyText={isRoom
                     ? 'No messages in this room yet. Start the conversation.'
                     : `This is the start of your chat with ${chat.active.user.displayName || chat.active.user.username}. Say hi 👋`}
@@ -106,7 +114,25 @@ export default function ChatPanel() {
                     onClose={() => setActionsFor(null)}
                     onReply={() => chat.setReplyTo(actionsFor)}
                     onDelete={scope => chat.deleteMessage(actionsFor, scope)}
+                    onReact={isRoom ? undefined : emoji => chat.react(actionsFor, emoji)}
                 />
+            )}
+            {confirmUnfriend && !isRoom && (
+                <Modal title="Unfriend?" onClose={() => setConfirmUnfriend(false)} size="sm">
+                    <p className={styles.confirmText}>
+                        You and {chat.active.user.displayName || chat.active.user.username} won’t be able to message each other.
+                        Your chat history stays, but you’d need to meet again in stranger chat to be friends.
+                    </p>
+                    <div className={styles.confirmActions}>
+                        <button className="btn btn-ghost" onClick={() => setConfirmUnfriend(false)}>Cancel</button>
+                        <button
+                            className="btn btn-danger"
+                            onClick={() => { setConfirmUnfriend(false); chat.unfriend(chat.active.user); }}
+                        >
+                            Unfriend
+                        </button>
+                    </div>
+                </Modal>
             )}
         </main>
     );

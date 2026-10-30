@@ -5,9 +5,8 @@ export async function getContacts() {
     return data.data.contacts;
 }
 
-export async function searchUsers(query) {
-    const { data } = await http.get('/users/search', { params: { q: query } });
-    return data.data.users;
+export function unfriend(userId) {
+    return http.delete(`/users/friends/${userId}`);
 }
 
 export async function updateProfile(fields) {

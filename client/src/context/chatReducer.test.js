@@ -103,3 +103,27 @@ describe('chatReducer', () => {
         expect(state.typing['u:bob']).toBeUndefined();
     });
 });
+
+describe('friends', () => {
+    test('REACTION_UPDATED replaces reactions on the matching message only', () => {
+        const state = stateWithBob([fromBob('a'), fromMe('b')]);
+        const next = chatReducer(state, { type: 'REACTION_UPDATED', messageId: 'b', reactions: [{ user: 'bob', emoji: '🔥' }] });
+        const [a, b] = next.messages[privateKey('bob')];
+        expect(b.reactions).toEqual([{ user: 'bob', emoji: '🔥' }]);
+        expect(a.reactions).toBeUndefined();
+    });
+
+    test('CONTACT_REMOVED drops the friend and closes their open chat', () => {
+        const open = chatReducer(stateWithBob(), { type: 'CHAT_OPENED', chat: { type: 'private', user: bob } });
+        const next = chatReducer(open, { type: 'CONTACT_REMOVED', userId: 'bob' });
+        expect(next.contacts.map(c => c.user._id)).toEqual(['zoe']);
+        expect(next.active).toBe(null);
+    });
+
+    test('CONTACT_REMOVED keeps a different open chat', () => {
+        const zoe = { _id: 'zoe' };
+        const open = chatReducer(stateWithBob(), { type: 'CHAT_OPENED', chat: { type: 'private', user: zoe } });
+        const next = chatReducer(open, { type: 'CONTACT_REMOVED', userId: 'bob' });
+        expect(next.active.user._id).toBe('zoe');
+    });
+});

@@ -1,13 +1,14 @@
 import { CornerUpLeft, Copy, Trash2, Users } from 'lucide-react';
 import Modal from '../../components/Modal';
 import { useToast } from '../../context/ToastContext';
+import { REACTIONS } from './MessageBubble';
 import styles from './MessageActions.module.css';
 
 /**
- * Actions for one message: reply, copy, delete for me, delete for everyone.
+ * Actions for one message: react, reply, copy, delete for me, delete for everyone.
  * Opened by the trash button (mouse) or a long-press (touch).
  */
-export default function MessageActions({ message, isMine, onClose, onReply, onDelete }) {
+export default function MessageActions({ message, isMine, onClose, onReply, onDelete, onReact }) {
     const toast = useToast();
 
     const run = action => () => {
@@ -24,6 +25,13 @@ export default function MessageActions({ message, isMine, onClose, onReply, onDe
     return (
         <Modal title="Message" onClose={onClose} size="sm">
             <p className={styles.preview}>{message.content}</p>
+            {onReact && (
+                <div className={styles.reactions} role="group" aria-label="React">
+                    {REACTIONS.map(emoji => (
+                        <button key={emoji} onClick={run(() => onReact(emoji))} aria-label={`React ${emoji}`}>{emoji}</button>
+                    ))}
+                </div>
+            )}
             <ul className={styles.list}>
                 <li>
                     <button onClick={run(onReply)}><CornerUpLeft size={18} /> Reply</button>

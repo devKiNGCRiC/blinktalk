@@ -264,3 +264,23 @@
         padding: 18px 16px;
     }
 }
+
+.details {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.details legend {
+    margin-bottom: 4px;
+    font-size: var(--text-sm);
+    font-weight: 600;
+}
+
+.detailGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+}

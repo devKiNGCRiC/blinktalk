@@ -10,7 +10,7 @@ const NEAR_BOTTOM_PX = 120;
  * Scrollable list of messages with day dividers.
  * Sticks to the bottom as new messages arrive, unless the user scrolled up to read.
  */
-export default function MessageList({ messages, myId, isRoom, onReply, onActions, onRetry, emptyText }) {
+export default function MessageList({ messages, myId, isRoom, onReply, onActions, onRetry, onReact, emptyText }) {
     const scrollRef = useRef(null);
     const atBottom = useRef(true);
     const [showJump, setShowJump] = useState(false);
@@ -74,6 +74,8 @@ export default function MessageList({ messages, myId, isRoom, onReply, onActions
                             onReply={onReply}
                             onActions={onActions}
                             onRetry={onRetry}
+                            onReact={onReact}
+                            myId={myId}
                             onQuoteClick={jumpToMessage}
                         />
                     )

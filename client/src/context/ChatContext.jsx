@@ -5,7 +5,6 @@ import { useSocket } from './SocketContext';
 import { useToast } from './ToastContext';
 import { errorMessage } from '../api/client';
 import * as usersApi from '../api/users';
-import * as roomsApi from '../api/rooms';
 import * as messagesApi from '../api/messages';
 import { playPing } from '../lib/sound';
 
@@ -46,18 +45,6 @@ export function ChatProvider({ children }) {
         }
     }, [toast]);
 
-    const loadRooms = useCallback(async () => {
-        try {
-            const [mine, publicRooms] = await Promise.all([roomsApi.getMyRooms(), roomsApi.getPublicRooms()]);
-            dispatch({ type: 'ROOMS_LOADED', rooms: mine });
-            const mineIds = new Set(mine.map(room => room._id));
-            dispatch({ type: 'PUBLIC_ROOMS_LOADED', rooms: publicRooms.filter(room => !mineIds.has(room._id)) });
-        } catch (error) {
-            toast.error(errorMessage(error, 'Couldn\'t load rooms.'));
-            dispatch({ type: 'ROOMS_LOADED', rooms: [] });
-        }
-    }, [toast]);
-
     const loadHistory = useCallback(async chat => {
         try {
             const messages = chat.type === 'room'
@@ -72,8 +59,7 @@ export function ChatProvider({ children }) {
 
     useEffect(() => {
         loadContacts();
-        loadRooms();
-    }, [loadContacts, loadRooms]);
+    }, [loadContacts]);
 
     // ---------- socket events ----------
 
@@ -102,7 +88,6 @@ export function ChatProvider({ children }) {
             // Fires on every (re)connect: refresh everything we might have missed
             'user:authenticated': () => {
                 loadContacts();
-                loadRooms();
                 const { active } = stateRef.current;
                 if (active) loadHistory(active);
             },
@@ -155,6 +140,12 @@ export function ChatProvider({ children }) {
                 setTyping(roomId ? roomKey(roomId) : privateKey(userId), null);
             },
 
+            'message:reaction': ({ messageId, reactions }) => dispatch({ type: 'REACTION_UPDATED', messageId, reactions }),
+
+            // Friends are made in stranger chat and can be removed from either side
+            'stranger:friend:added': () => loadContacts(),
+            'friend:removed': ({ userId }) => dispatch({ type: 'CONTACT_REMOVED', userId }),
+
             'user:online': ({ userId }) => dispatch({ type: 'PRESENCE', userId, isOnline: true }),
             'user:offline': ({ userId, lastSeen }) => dispatch({ type: 'PRESENCE', userId, isOnline: false, lastSeen }),
 
@@ -167,7 +158,7 @@ export function ChatProvider({ children }) {
         return () => {
             Object.entries(handlers).forEach(([event, handler]) => socket.off(event, handler));
         };
-    }, [socket, myId, toast, loadContacts, loadRooms, loadHistory]);
+    }, [socket, myId, toast, loadContacts, loadHistory]);
 
     // Coming back to the tab reads the open chat
     useEffect(() => {
@@ -245,23 +236,20 @@ export function ChatProvider({ children }) {
 
     const setReplyTo = useCallback(message => dispatch({ type: 'REPLY_SET', message }), []);
 
-    const joinAndOpenRoom = useCallback(async room => {
-        try {
-            await roomsApi.joinRoom(room._id);
-            await loadRooms();
-            openChat({ type: 'room', room });
-        } catch (error) {
-            toast.error(errorMessage(error, 'Couldn\'t join this room.'));
-        }
-    }, [loadRooms, openChat, toast]);
+    // One reaction per person: the same emoji again removes it (the server decides)
+    const react = useCallback((message, emoji) => {
+        if (message._id) socket?.emit('message:react', { messageId: message._id, emoji });
+    }, [socket]);
 
-    const createRoom = useCallback(async fields => {
-        const room = await roomsApi.createRoom(fields);
-        await loadRooms();
-        openChat({ type: 'room', room });
-        toast.success(`Created ${room.name}`);
-        return room;
-    }, [loadRooms, openChat, toast]);
+    const unfriend = useCallback(async friend => {
+        try {
+            await usersApi.unfriend(friend._id);
+            dispatch({ type: 'CONTACT_REMOVED', userId: friend._id });
+            toast.info(`${friend.displayName || friend.username} is no longer your friend`);
+        } catch (error) {
+            toast.error(errorMessage(error, 'Couldn\'t remove this friend.'));
+        }
+    }, [toast]);
 
     // Typing indicator for the open chat
     const emitTyping = useCallback(isTyping => {
@@ -289,11 +277,10 @@ export function ChatProvider({ children }) {
         retryMessage,
         deleteMessage,
         setReplyTo,
-        joinAndOpenRoom,
-        createRoom,
-        emitTyping,
-        reloadRooms: loadRooms
-    }), [state, myId, totalUnread, openChat, closeChat, sendMessage, retryMessage, deleteMessage, setReplyTo, joinAndOpenRoom, createRoom, emitTyping, loadContacts, loadRooms]);
+        react,
+        unfriend,
+        emitTyping
+    }), [state, myId, totalUnread, openChat, closeChat, sendMessage, retryMessage, deleteMessage, setReplyTo, react, unfriend, emitTyping]);
 
     return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 }

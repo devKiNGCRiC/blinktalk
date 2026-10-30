@@ -1,11 +1,38 @@
-import { memo, useRef } from 'react';
-import { Check, CheckCheck, Clock, AlertCircle, CornerUpLeft, Copy, Trash2 } from 'lucide-react';
+import { memo, useRef, useState } from 'react';
+import { Check, CheckCheck, Clock, AlertCircle, CornerUpLeft, Copy, Trash2, SmilePlus } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import Avatar from '../../components/Avatar';
 import { formatClock } from '../../lib/format';
 import styles from './MessageBubble.module.css';
 
 const LONG_PRESS_MS = 450;
+export const REACTIONS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
+
+/** Reaction chips under a bubble: each emoji once, with a count */
+function Reactions({ reactions, myId, onReact }) {
+    if (!reactions?.length) return null;
+    const counts = new Map();
+    for (const { emoji, user } of reactions) {
+        const entry = counts.get(emoji) || { count: 0, mine: false };
+        entry.count += 1;
+        entry.mine ||= (user?._id ?? user) === myId;
+        counts.set(emoji, entry);
+    }
+    return (
+        <div className={styles.reactions}>
+            {[...counts].map(([emoji, { count, mine }]) => (
+                <button
+                    key={emoji}
+                    className={mine ? styles.myReaction : ''}
+                    onClick={() => onReact(emoji)}
+                    aria-label={mine ? `Remove your ${emoji}` : `React ${emoji}`}
+                >
+                    {emoji}{count > 1 && <span>{count}</span>}
+                </button>
+            ))}
+        </div>
+    );
+}
 
 /** ✓ sent, ✓✓ delivered, colored ✓✓ read (private chats); a clock while sending */
 function Receipt({ message, isRoom }) {
@@ -26,10 +53,11 @@ function Quote({ reply, onClick }) {
     );
 }
 
-function MessageBubble({ item, isRoom, onReply, onActions, onRetry, onQuoteClick }) {
+function MessageBubble({ item, isRoom, onReply, onActions, onRetry, onReact, myId, onQuoteClick }) {
     const { message, isMine, isFirst, isLast } = item;
     const toast = useToast();
     const pressTimer = useRef(null);
+    const [picking, setPicking] = useState(false);
 
     if (message.type === 'system') {
         return <div className={styles.system}>{message.content}</div>;
@@ -103,12 +131,36 @@ function MessageBubble({ item, isRoom, onReply, onActions, onRetry, onQuoteClick
 
                     {canAct && (
                         <div className={styles.tools} role="toolbar" aria-label="Message actions">
+                            {onReact && (
+                                <button onClick={() => setPicking(p => !p)} aria-label="React" aria-expanded={picking}>
+                                    <SmilePlus size={16} />
+                                </button>
+                            )}
                             <button onClick={() => onReply(message)} aria-label="Reply"><CornerUpLeft size={16} /></button>
                             <button onClick={copy} aria-label="Copy text"><Copy size={16} /></button>
                             <button onClick={() => onActions(message)} aria-label="Delete"><Trash2 size={16} /></button>
                         </div>
                     )}
                 </div>
+
+                {picking && canAct && (
+                    <div className={styles.picker} role="menu">
+                        {REACTIONS.map(emoji => (
+                            <button
+                                key={emoji}
+                                role="menuitem"
+                                onClick={() => { onReact(message, emoji); setPicking(false); }}
+                                aria-label={`React ${emoji}`}
+                            >
+                                {emoji}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {onReact && !deleted && (
+                    <Reactions reactions={message.reactions} myId={myId} onReact={emoji => onReact(message, emoji)} />
+                )}
 
                 {failed && (
                     <button className={styles.retry} onClick={() => onRetry(message)}>

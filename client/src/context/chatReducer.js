@@ -217,6 +217,21 @@ export function chatReducer(state, action) {
             });
         }
 
+        case 'REACTION_UPDATED':
+            return updateAllMessages(state, message =>
+                message._id === action.messageId ? { ...message, reactions: action.reactions } : message
+            );
+
+        case 'CONTACT_REMOVED': {
+            const closing = state.active?.type === 'private' && state.active.user._id === action.userId;
+            return {
+                ...state,
+                contacts: state.contacts?.filter(contact => contact.user._id !== action.userId) ?? null,
+                active: closing ? null : state.active,
+                replyTo: closing ? null : state.replyTo
+            };
+        }
+
         case 'TYPING': {
             const typing = { ...state.typing };
             if (action.name) typing[action.key] = action.name;
