@@ -113,3 +113,30 @@ describe('getDeviceId', () => {
         vi.unstubAllGlobals();
     });
 });
+
+describe('looksLikeContactInfo', () => {
+    test('spots phone numbers and emails', async () => {
+        const { looksLikeContactInfo } = await import('./contactInfo');
+        expect(looksLikeContactInfo('call me 98765 43210')).toBe(true);
+        expect(looksLikeContactInfo('+1 (555) 123-4567')).toBe(true);
+        expect(looksLikeContactInfo('mail a@b.co')).toBe(true);
+        expect(looksLikeContactInfo('i have 3 cats')).toBe(false);
+        expect(looksLikeContactInfo('born in 2001, 25 now')).toBe(false);
+    });
+});
+
+describe('buildTranscript', () => {
+    test('writes you, stranger and system lines', async () => {
+        const { buildTranscript } = await import('./transcript');
+        const text = buildTranscript([
+            { kind: 'system', text: 'Connected' },
+            { kind: 'me', text: 'hi', at: new Date(2026, 9, 31, 9, 5).toISOString() },
+            { kind: 'them', text: 'hey', at: new Date(2026, 9, 31, 9, 6).toISOString() }
+        ], { startedAt: new Date(2026, 9, 31, 9, 4) });
+        const lines = text.split('\n');
+        expect(lines[0]).toMatch(/^BlinkTalk chat/);
+        expect(lines).toContain('— Connected —');
+        expect(lines).toContain('[09:05] You: hi');
+        expect(lines).toContain('[09:06] Stranger: hey');
+    });
+});

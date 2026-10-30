@@ -93,6 +93,7 @@
 /* ---------- Connected ---------- */
 
 .chat {
+    position: relative;
     flex: 1;
     min-height: 0;
     display: flex;
@@ -182,6 +183,7 @@
 }
 
 .bubble {
+    position: relative;
     max-width: min(78%, 560px);
     padding: 8px 12px 6px;
     border-radius: var(--radius-bubble);
@@ -193,7 +195,7 @@
     overflow-wrap: anywhere;
 }
 
-.bubble span {
+.bubble > span {
     display: block;
     text-align: right;
     font-size: 0.6875rem;
@@ -235,6 +237,208 @@
 
 .dots i:nth-child(3) {
     animation-delay: 0.3s;
+}
+
+/* ---------- Reactions ---------- */
+
+.bubbleRow {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: min(85%, 600px);
+}
+
+.themRow {
+    align-self: flex-start;
+}
+
+.meRow {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+
+.bubbleRow .bubble {
+    max-width: 100%;
+}
+
+.reactButton {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.reactButton:hover {
+    background: var(--surface-2);
+    color: var(--text);
+}
+
+.bubbleRow:hover .reactButton,
+.reactButton:focus-visible,
+.reactButton[aria-expanded='true'] {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .reactButton {
+        display: none;
+    }
+}
+
+.picker {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    z-index: 5;
+    display: flex;
+    gap: 2px;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+    animation: bubble-in 0.2s var(--ease-spring);
+}
+
+.themRow .picker {
+    left: 0;
+}
+
+.meRow .picker {
+    right: 0;
+}
+
+.picker button {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 1.25rem;
+    transition: transform 0.15s var(--ease-spring);
+}
+
+.picker button:hover {
+    background: var(--surface-2);
+    transform: scale(1.15);
+}
+
+.picker .picked {
+    background: var(--surface-3);
+}
+
+.reactions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-top: 2px;
+}
+
+.reactions span {
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 0.15);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+}
+
+.reactions .mine {
+    outline: 1px solid currentColor;
+}
+
+/* ---------- Icebreaker, hints, flags ---------- */
+
+.icebreaker {
+    align-self: center;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: min(100%, 560px);
+    margin-bottom: 8px;
+    padding: 10px 10px 10px 14px;
+    border: 1px dashed var(--accent);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    font-size: var(--text-sm);
+}
+
+.icebreaker > svg {
+    flex-shrink: 0;
+    color: var(--accent);
+}
+
+.icebreaker p {
+    flex: 1;
+}
+
+.askIt {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--accent-gradient);
+    color: var(--on-accent);
+    font-weight: 700;
+    font-size: var(--text-xs);
+}
+
+.escHint {
+    position: absolute;
+    left: 50%;
+    bottom: 84px;
+    z-index: 4;
+    transform: translateX(-50%);
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: var(--text);
+    color: var(--bg);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    pointer-events: none;
+    animation: bubble-in 0.2s var(--ease-spring);
+}
+
+.flag {
+    font-weight: 400;
+}
+
+.pulse {
+    animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    50% {
+        box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 30%, transparent);
+    }
+}
+
+/* ---------- Report & contact info dialogs ---------- */
+
+.modalText {
+    color: var(--text-muted);
+    margin-bottom: 14px;
+}
+
+.reasonList {
+    display: grid;
+    gap: 8px;
+}
+
+.quote {
+    margin: 0 0 16px;
+    padding: 10px 14px;
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    overflow-wrap: anywhere;
+}
+
+.modalActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
 }
 
 @keyframes bubble-in {
