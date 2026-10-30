@@ -192,6 +192,12 @@ messageSchema.index({ receiver: 1, isRead: 1 });
 // Index for anonymous messages
 messageSchema.index({ anonymousSessionId: 1, createdAt: -1 });
 
+// Anonymous stranger chat text is kept for 7 days (for report review), then removed
+messageSchema.index(
+    { createdAt: 1 },
+    { expireAfterSeconds: 7 * 24 * 60 * 60, partialFilterExpression: { isAnonymous: true } }
+);
+
 // Compound index for private chat
 messageSchema.index({ 
     sender: 1, 

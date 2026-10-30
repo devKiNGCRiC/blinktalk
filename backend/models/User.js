@@ -115,6 +115,35 @@ const userSchema = new mongoose.Schema(
             }
         },
 
+        // Optional profile details, used by stranger chat filters (self-reported)
+        gender: {
+            type: String,
+            enum: ['male', 'female', 'nonbinary'],
+            default: null
+        },
+        country: {
+            type: String, // ISO 3166-1 alpha-2, e.g. "IN"
+            match: [/^[A-Z]{2}$/, 'Country must be a 2-letter code'],
+            default: null
+        },
+        language: {
+            type: String, // ISO 639-1, e.g. "hi"
+            match: [/^[a-z]{2}$/, 'Language must be a 2-letter code'],
+            default: null
+        },
+
+        // When the user agreed to the 18+ rules at signup
+        acceptedTermsAt: {
+            type: Date,
+            default: null
+        },
+
+        // Friends made through stranger chat (both sides store each other)
+        friends: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        }],
+
         // Blocked users - array of user IDs
         blockedUsers: [{
             type: mongoose.Schema.Types.ObjectId, // Reference to other users
