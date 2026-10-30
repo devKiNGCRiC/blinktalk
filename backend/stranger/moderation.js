@@ -30,6 +30,19 @@ const LINK_PATTERN = new RegExp(
     'gi'
 );
 
+// Maximum message length (same as the Message model)
+const MAX_MESSAGE_LENGTH = 5000;
+
+/**
+ * Returns trimmed message text, or null if it is empty / too long / not text
+ */
+function cleanContent(content) {
+    if (typeof content !== 'string') return null;
+    const trimmed = content.trim();
+    if (!trimmed || trimmed.length > MAX_MESSAGE_LENGTH) return null;
+    return trimmed;
+}
+
 /**
  * Replaces each letter of a bad word with *
  * @param {String} text
@@ -59,4 +72,4 @@ function cleanStrangerText(text, { allowLinks }) {
     return allowLinks ? masked : removeLinks(masked);
 }
 
-module.exports = { maskBadWords, removeLinks, cleanStrangerText };
+module.exports = { cleanContent, maskBadWords, removeLinks, cleanStrangerText };

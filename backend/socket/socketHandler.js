@@ -3,8 +3,8 @@
 // ============================================
 
 // This file handles all real-time Socket.io events
-// Manages: Private messaging, group chat, typing indicators, read receipts,
-// message deletion and anonymous stranger chat
+// Manages: Private messaging, group chat, typing indicators, read receipts
+// and message deletion. Stranger chat lives in ../stranger/strangerHandler.js
 
 // Import mongoose to validate IDs sent by the client
 const mongoose = require('mongoose');
@@ -14,34 +14,35 @@ const User = require('../models/User');
 const Message = require('../models/Message');
 const Room = require('../models/Room');
 
-// Import UUID for anonymous sessions
-const { v4: uuidv4 } = require('uuid');
-
 // Import JWT verification for socket authentication
 const { verifyToken } = require('../config/jwt');
 
-// Maximum message length (same as the Message model)
-const MAX_MESSAGE_LENGTH = 5000;
+// Message text validation (shared with stranger chat)
+const { cleanContent } = require('../stranger/moderation');
 
-// Store for anonymous stranger chat matching
-// Format: { sessionId: { socketId, interests, partnerId, isSearching } }
-const anonymousUsers = new Map();
-
-// Store waiting users looking for strangers
-const waitingQueue = [];
+// Stranger chat (matching, limits, reports)
+const setupStranger = require('../stranger/strangerHandler');
 
 // ============================================
 // Small Helpers
 // ============================================
 
 /**
- * Returns trimmed message text, or null if it is empty / too long / not text
+ * Device id sent by the browser (a random id kept in localStorage), or null
  */
-function cleanContent(content) {
-    if (typeof content !== 'string') return null;
-    const trimmed = content.trim();
-    if (!trimmed || trimmed.length > MAX_MESSAGE_LENGTH) return null;
-    return trimmed;
+function cleanDeviceId(id) {
+    return typeof id === 'string' && /^[\w-]{8,64}$/.test(id) ? id : null;
+}
+
+/**
+ * The client's IP address (the first X-Forwarded-For entry when behind a proxy)
+ */
+function clientIp(socket) {
+    const forwarded = socket.handshake.headers['x-forwarded-for'];
+    if (process.env.TRUST_PROXY === '1' && forwarded) {
+        return forwarded.split(',')[0].trim();
+    }
+    return socket.handshake.address;
 }
 
 /**
@@ -61,6 +62,9 @@ function validId(id) {
  */
 module.exports = (io) => {
 
+    // Stranger chat matching loop and shared state
+    const stranger = setupStranger(io);
+
     /**
      * Is the user connected right now (in any browser tab)?
      */
@@ -78,6 +82,10 @@ module.exports = (io) => {
     // messages queued while offline, which the client sends the instant it
     // reconnects, are already authenticated. Guests connect without a token.
     io.use((socket, next) => {
+        // Who this browser is, for stranger chat limits, reports and bans
+        socket.deviceId = cleanDeviceId(socket.handshake.auth && socket.handshake.auth.deviceId);
+        socket.ip = clientIp(socket);
+
         const token = socket.handshake.auth && socket.handshake.auth.token;
         if (token) {
             try {
@@ -528,146 +536,6 @@ module.exports = (io) => {
         });
 
         // ============================================
-        // Anonymous Stranger Chat (USP Feature!)
-        // ============================================
-
-        /**
-         * Event: stranger:search
-         * Description: Search for a random stranger to chat with
-         * ("Next" in the client is just another search)
-         * Data: { interests } (optional)
-         */
-        socket.on('stranger:search', (data) => {
-            try {
-                const { interests } = data || {};
-
-                // End any previous session first (tells the old partner they left)
-                endStrangerSession(socket, false);
-
-                // Create anonymous session
-                const sessionId = uuidv4();
-                socket.anonymousSessionId = sessionId;
-
-                // Store anonymous user info
-                anonymousUsers.set(sessionId, {
-                    socketId: socket.id,
-                    interests: interests || [],
-                    partnerId: null,
-                    isSearching: true,
-                    connectedAt: null
-                });
-
-                // Try to find a match
-                const match = findStrangerMatch(sessionId);
-
-                if (match) {
-                    // Match found! Connect both users
-                    connectStrangers(socket, match, sessionId);
-                } else {
-                    // No match, add to waiting queue
-                    waitingQueue.push(sessionId);
-
-                    socket.emit('stranger:searching', {
-                        sessionId,
-                        message: 'Searching for a stranger...'
-                    });
-
-                    console.log(`🔍 Stranger ${sessionId} searching...`);
-                }
-
-            } catch (error) {
-                console.error('Stranger Search Error:', error);
-                socket.emit('error', { message: 'Failed to search for stranger' });
-            }
-        });
-
-        /**
-         * Event: stranger:message
-         * Description: Send message to connected stranger
-         * Data: { content }
-         */
-        socket.on('stranger:message', async (data) => {
-            try {
-                const content = cleanContent(data && data.content);
-                if (!content) return;
-
-                if (!socket.anonymousSessionId) {
-                    return socket.emit('error', { message: 'Not in anonymous chat' });
-                }
-
-                const session = anonymousUsers.get(socket.anonymousSessionId);
-
-                if (!session || !session.partnerId) {
-                    return socket.emit('error', { message: 'No stranger connected' });
-                }
-
-                // Create anonymous message in database
-                const message = await Message.create({
-                    sender: null, // Anonymous, no user
-                    receiver: null,
-                    content,
-                    type: 'text',
-                    isAnonymous: true,
-                    anonymousSessionId: socket.anonymousSessionId
-                });
-
-                // Get partner's session
-                const partnerSession = anonymousUsers.get(session.partnerId);
-
-                if (partnerSession) {
-                    // Send to partner
-                    io.to(partnerSession.socketId).emit('stranger:message', {
-                        content,
-                        from: 'stranger',
-                        timestamp: message.createdAt
-                    });
-
-                    // Confirm to sender
-                    socket.emit('stranger:message', {
-                        content,
-                        from: 'you',
-                        timestamp: message.createdAt
-                    });
-                }
-
-                console.log(`💬 Anonymous message in session ${socket.anonymousSessionId}`);
-
-            } catch (error) {
-                console.error('Stranger Message Error:', error);
-                socket.emit('error', { message: 'Failed to send message' });
-            }
-        });
-
-        /**
-         * Event: stranger:typing
-         * Description: Notify stranger that you're typing
-         */
-        socket.on('stranger:typing', () => {
-            try {
-                if (!socket.anonymousSessionId) return;
-
-                const session = anonymousUsers.get(socket.anonymousSessionId);
-                if (!session || !session.partnerId) return;
-
-                const partnerSession = anonymousUsers.get(session.partnerId);
-                if (partnerSession) {
-                    io.to(partnerSession.socketId).emit('stranger:typing');
-                }
-
-            } catch (error) {
-                console.error('Stranger Typing Error:', error);
-            }
-        });
-
-        /**
-         * Event: stranger:disconnect
-         * Description: Leave stranger chat (or cancel searching)
-         */
-        socket.on('stranger:disconnect', () => {
-            endStrangerSession(socket, true);
-        });
-
-        // ============================================
         // Disconnection Event
         // ============================================
 
@@ -694,124 +562,15 @@ module.exports = (io) => {
                     });
                 }
 
-                // Handle anonymous user disconnect
-                endStrangerSession(socket, false);
-
             } catch (error) {
                 console.error('Disconnect Error:', error);
             }
         });
 
+        // ============================================
+        // Stranger Chat
+        // ============================================
+        stranger.attach(socket);
+
     }); // End of io.on('connection')
-
-    // ============================================
-    // Helper Functions
-    // ============================================
-
-    /**
-     * Find a matching stranger for anonymous chat
-     * @param {String} sessionId - Current user's session ID
-     * @returns {String|null} - Matched session ID or null
-     */
-    function findStrangerMatch(sessionId) {
-        // Simple matching: get first person in waiting queue
-        // You can enhance this with interest-based matching
-
-        for (let i = 0; i < waitingQueue.length; i++) {
-            const waitingSessionId = waitingQueue[i];
-
-            // Don't match with self
-            if (waitingSessionId === sessionId) continue;
-
-            // Check if still searching
-            const waitingSession = anonymousUsers.get(waitingSessionId);
-            if (!waitingSession || !waitingSession.isSearching) continue;
-
-            // Match found! Remove from queue
-            waitingQueue.splice(i, 1);
-            return waitingSessionId;
-        }
-
-        return null; // No match found
-    }
-
-    /**
-     * Connect two strangers together
-     * @param {Object} socket - Current socket
-     * @param {String} partnerSessionId - Partner's session ID
-     * @param {String} currentSessionId - Current session ID
-     */
-    function connectStrangers(socket, partnerSessionId, currentSessionId) {
-        const currentSession = anonymousUsers.get(currentSessionId);
-        const partnerSession = anonymousUsers.get(partnerSessionId);
-
-        if (!currentSession || !partnerSession) return;
-
-        // Update sessions
-        currentSession.partnerId = partnerSessionId;
-        currentSession.isSearching = false;
-        currentSession.connectedAt = new Date();
-
-        partnerSession.partnerId = currentSessionId;
-        partnerSession.isSearching = false;
-        partnerSession.connectedAt = new Date();
-
-        // Notify both users
-        socket.emit('stranger:connected', {
-            sessionId: currentSessionId,
-            message: 'Connected to a stranger! Say hi! 👋'
-        });
-
-        io.to(partnerSession.socketId).emit('stranger:connected', {
-            sessionId: partnerSessionId,
-            message: 'Connected to a stranger! Say hi! 👋'
-        });
-
-        console.log(`🤝 Strangers connected: ${currentSessionId} <-> ${partnerSessionId}`);
-    }
-
-    /**
-     * End a socket's stranger session (if it has one)
-     * @param {Object} socket - The socket leaving stranger chat
-     * @param {Boolean} notifySelf - Also send "stranger:ended" back to this socket
-     */
-    function endStrangerSession(socket, notifySelf) {
-        if (!socket.anonymousSessionId) return;
-
-        const sessionId = socket.anonymousSessionId;
-        const session = anonymousUsers.get(sessionId);
-
-        if (session && session.partnerId) {
-            // Notify partner
-            const partnerSession = anonymousUsers.get(session.partnerId);
-            if (partnerSession) {
-                io.to(partnerSession.socketId).emit('stranger:disconnected', {
-                    message: 'Stranger has disconnected.'
-                });
-
-                // Reset partner's session
-                partnerSession.partnerId = null;
-                partnerSession.isSearching = false;
-            }
-        }
-
-        // Remove from waiting queue if present
-        const queueIndex = waitingQueue.indexOf(sessionId);
-        if (queueIndex > -1) {
-            waitingQueue.splice(queueIndex, 1);
-        }
-
-        // Remove session
-        anonymousUsers.delete(sessionId);
-        socket.anonymousSessionId = null;
-
-        if (notifySelf) {
-            socket.emit('stranger:ended', {
-                message: 'You left the chat.'
-            });
-        }
-
-        console.log(`👋 Stranger ${sessionId} left`);
-    }
-
 }; // End of module.exports
