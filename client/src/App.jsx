@@ -9,7 +9,7 @@ import { LogoMark } from './components/Logo';
 import styles from './App.module.css';
 
 function Screens() {
-    const { status } = useAuth();
+    const { status, authOpen } = useAuth();
 
     if (status === 'loading') {
         return (
@@ -19,8 +19,7 @@ function Screens() {
         );
     }
 
-    if (status === 'signedOut') return <AuthScreen />;
-
+    // Everyone lands on stranger chat; log in / sign up opens over the app
     return (
         <SocketProvider>
             {status === 'user' ? (
@@ -30,6 +29,7 @@ function Screens() {
             ) : (
                 <AppShell guest />
             )}
+            {authOpen && <AuthScreen />}
         </SocketProvider>
     );
 }

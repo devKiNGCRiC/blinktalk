@@ -1,12 +1,14 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
+import { getDeviceId } from '../lib/device';
 
 const SocketContext = createContext(null);
 
 /**
- * Opens one Socket.io connection while the user is logged in or chatting as a guest.
+ * Opens one Socket.io connection for everyone (guests too).
  * Logged-in users authenticate with their JWT on every (re)connect.
+ * The device id lets the server apply the guest daily limit, reports and bans.
  */
 export function SocketProvider({ children }) {
     const { status, token } = useAuth();
@@ -15,11 +17,14 @@ export function SocketProvider({ children }) {
     const [hasConnected, setHasConnected] = useState(false);
 
     useEffect(() => {
-        if (status !== 'user' && status !== 'guest') return undefined;
+        if (status === 'loading') return undefined;
 
         // The token in `auth` identifies the user during the handshake, so messages
         // queued while offline are accepted as soon as the connection comes back
-        const newSocket = io({ transports: ['websocket', 'polling'], auth: token ? { token } : {} });
+        const newSocket = io({
+            transports: ['websocket', 'polling'],
+            auth: { deviceId: getDeviceId(), ...(token && { token }) }
+        });
 
         newSocket.on('connect', () => {
             setConnected(true);

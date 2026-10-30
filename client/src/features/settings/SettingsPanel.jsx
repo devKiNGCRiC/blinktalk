@@ -207,7 +207,7 @@ function Section({ title, description, children }) {
 }
 
 export default function SettingsPanel({ guest }) {
-    const { logout, leaveGuest } = useAuth();
+    const { logout, openAuth } = useAuth();
 
     return (
         <div className={styles.page}>
@@ -215,7 +215,7 @@ export default function SettingsPanel({ guest }) {
                 <h1 className={styles.heading}>{guest ? 'Theme' : 'Settings'}</h1>
 
                 {!guest && (
-                    <Section title="Profile" description="This is how people see you in chats and rooms.">
+                    <Section title="Profile" description="This is how strangers and friends see you.">
                         <ProfileForm />
                     </Section>
                 )}
@@ -225,9 +225,9 @@ export default function SettingsPanel({ guest }) {
                 </Section>
 
                 {guest ? (
-                    <Section title="Make it yours" description="An account lets you add friends, join rooms and keep your chat history.">
+                    <Section title="Make it yours" description="An account gives you unlimited chats, gender and country filters, and friends you can keep talking to.">
                         <div>
-                            <button className="btn btn-primary" onClick={leaveGuest}>
+                            <button className="btn btn-primary" onClick={() => openAuth('signup')}>
                                 <UserPlus size={18} /> Create an account
                             </button>
                         </div>

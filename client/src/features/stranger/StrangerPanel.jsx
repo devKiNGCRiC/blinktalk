@@ -14,7 +14,7 @@ const TYPING_SHOW_MS = 2500;
  */
 export default function StrangerPanel({ active, guest }) {
     const { socket, connected } = useSocket();
-    const { leaveGuest } = useAuth();
+    const { openAuth } = useAuth();
     const [phase, setPhase] = useState('idle');
     const [lines, setLines] = useState([]);
     const [strangerTyping, setStrangerTyping] = useState(false);
@@ -109,7 +109,7 @@ export default function StrangerPanel({ active, guest }) {
                 {guest && (
                     <p className={styles.signup}>
                         Want to keep your chats and add friends?{' '}
-                        <button onClick={leaveGuest}>Create an account</button>
+                        <button onClick={() => openAuth('signup')}>Create an account</button>
                     </p>
                 )}
             </section>

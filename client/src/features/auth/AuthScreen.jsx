@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Check, Eye, EyeOff, Ghost } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Check, Eye, EyeOff, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { errorMessage } from '../../api/client';
 import { checkPassword, isStrongPassword, usernameError } from '../../lib/password';
@@ -79,6 +79,7 @@ function LoginForm() {
 function SignupForm() {
     const { register } = useAuth();
     const [fields, setFields] = useState({ username: '', email: '', password: '', confirmPassword: '' });
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [touched, setTouched] = useState({});
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
@@ -90,7 +91,7 @@ function SignupForm() {
     const mismatch = fields.confirmPassword && fields.confirmPassword !== fields.password;
     const rules = checkPassword(fields.password);
     const canSubmit = !usernameError(fields.username) && /\S+@\S+\.\S+/.test(fields.email)
-        && isStrongPassword(fields.password) && fields.password === fields.confirmPassword;
+        && isStrongPassword(fields.password) && fields.password === fields.confirmPassword && acceptedTerms;
 
     async function submit(event) {
         event.preventDefault();
@@ -98,7 +99,7 @@ function SignupForm() {
         setBusy(true);
         setError('');
         try {
-            await register({ ...fields, username: fields.username.trim(), email: fields.email.trim() });
+            await register({ ...fields, username: fields.username.trim(), email: fields.email.trim(), acceptedTerms });
         } catch (err) {
             setError(errorMessage(err, 'Couldn\'t create your account. Try again.'));
             setBusy(false);
@@ -150,6 +151,10 @@ function SignupForm() {
                 <PasswordInput id="signup-confirm" value={fields.confirmPassword} onChange={set('confirmPassword')} autoComplete="new-password" />
                 {mismatch && <span className="field-error">Passwords don’t match</span>}
             </div>
+            <label className={styles.terms}>
+                <input type="checkbox" checked={acceptedTerms} onChange={event => setAcceptedTerms(event.target.checked)} />
+                <span>I’m 18 or older and I’ll follow the rules: be kind, no harassment, no sharing anyone’s personal details.</span>
+            </label>
             {error && <p className="field-error" role="alert">{error}</p>}
             <button className="btn btn-primary btn-block" disabled={busy || !canSubmit}>
                 {busy ? 'Creating account…' : 'Create account'}
@@ -159,22 +164,32 @@ function SignupForm() {
 }
 
 export default function AuthScreen() {
-    const { enterGuest } = useAuth();
-    const [mode, setMode] = useState('login');
+    const { authMode, closeAuth } = useAuth();
+    const [mode, setMode] = useState(authMode || 'login');
+
+    // Esc closes the screen and goes back to chatting
+    useEffect(() => {
+        const onKey = event => event.key === 'Escape' && closeAuth();
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [closeAuth]);
 
     return (
-        <div className={styles.screen}>
+        <div className={styles.screen} role="dialog" aria-modal="true" aria-label={mode === 'login' ? 'Log in' : 'Sign up'}>
+            <button className={`icon-btn ${styles.close}`} onClick={closeAuth} aria-label="Close and keep chatting">
+                <X size={22} />
+            </button>
             <div className={styles.glow} aria-hidden="true" />
 
             <section className={styles.hero}>
                 <Logo size={36} />
                 <h1 className={styles.headline}>
-                    Talk to friends.
+                    Met someone fun?
                     <br />
-                    Or a total stranger.
+                    Keep them.
                 </h1>
                 <p className={styles.lede}>
-                    Real-time chats, group rooms, and one tap to meet someone new — no account needed for that part.
+                    With an account you get unlimited chats, gender and country filters, more interests, and friends you can message any time.
                 </p>
                 <div className={styles.demo}>
                     <DemoChat />
@@ -204,13 +219,9 @@ export default function AuthScreen() {
 
                     {mode === 'login' ? <LoginForm /> : <SignupForm />}
 
-                    <div className={styles.or}><span>or</span></div>
-
-                    <button className={`btn btn-ghost btn-block ${styles.stranger}`} onClick={enterGuest}>
-                        <Ghost size={20} />
-                        Chat with a stranger
-                    </button>
-                    <p className={styles.note}>No account. Nothing is linked to you.</p>
+                    <p className={styles.note}>
+                        Or <button className={styles.link} onClick={closeAuth}>keep chatting without an account</button>
+                    </p>
                 </div>
             </section>
         </div>

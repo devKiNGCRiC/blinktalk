@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, vi } from 'vitest';
 import { groupMessages } from './grouping';
 import { formatDayLabel, formatLastSeen, formatListTime } from './format';
 import { resolveInitialTheme } from './theme';
@@ -82,5 +82,34 @@ describe('password rules', () => {
         expect(usernameError('ab')).toBeTruthy();
         expect(usernameError('bad name')).toBeTruthy();
         expect(usernameError('good_name1')).toBeNull();
+    });
+});
+
+describe('getDeviceId', () => {
+    test('creates one id and keeps returning it', async () => {
+        const store = new Map();
+        vi.stubGlobal('localStorage', {
+            getItem: key => store.get(key) ?? null,
+            setItem: (key, value) => store.set(key, String(value))
+        });
+        const { getDeviceId } = await import('./device');
+        const first = getDeviceId();
+        expect(first).toMatch(/^[\w-]{8,64}$/);
+        expect(getDeviceId()).toBe(first);
+        expect(store.get('blinktalk:device')).toBe(first);
+        vi.unstubAllGlobals();
+    });
+
+    test('still works when storage is blocked', async () => {
+        vi.stubGlobal('localStorage', {
+            getItem: () => { throw new Error('blocked'); },
+            setItem: () => { throw new Error('blocked'); }
+        });
+        vi.resetModules();
+        const { getDeviceId } = await import('./device');
+        const id = getDeviceId();
+        expect(id).toMatch(/^[\w-]{8,64}$/);
+        expect(getDeviceId()).toBe(id);
+        vi.unstubAllGlobals();
     });
 });

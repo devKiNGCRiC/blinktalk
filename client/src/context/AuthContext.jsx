@@ -20,14 +20,16 @@ function writeToken(token) {
 /**
  * status:
  *   'loading'   checking a saved session
- *   'signedOut' show the landing / auth screen
  *   'user'      logged in
- *   'guest'     anonymous stranger chat, no account
+ *   'guest'     anonymous - stranger chat works without an account
+ *
+ * authOpen / authMode: the log in / sign up screen shown over the app
  */
 export function AuthProvider({ children }) {
     const [status, setStatus] = useState('loading');
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(null);
+    const [authMode, setAuthMode] = useState(null); // null | 'login' | 'signup'
     const { setTheme } = useTheme();
     const toast = useToast();
 
@@ -37,6 +39,7 @@ export function AuthProvider({ children }) {
         setToken(newToken);
         setUser(newUser);
         setStatus('user');
+        setAuthMode(null);
         // The theme saved on the account follows the user to every device
         if (newUser.preferences?.theme) setTheme(newUser.preferences.theme);
     }, [setTheme]);
@@ -46,14 +49,14 @@ export function AuthProvider({ children }) {
         writeToken(null);
         setToken(null);
         setUser(null);
-        setStatus('signedOut');
+        setStatus('guest');
     }, []);
 
     // Restore a saved session on first load
     useEffect(() => {
         const saved = readToken();
         if (!saved) {
-            setStatus('signedOut');
+            setStatus('guest');
             return;
         }
         setAuthToken(saved);
@@ -95,9 +98,11 @@ export function AuthProvider({ children }) {
         register,
         logout,
         updateUser: setUser,
-        enterGuest: () => setStatus('guest'),
-        leaveGuest: () => setStatus('signedOut')
-    }), [status, user, token, login, register, logout]);
+        authOpen: authMode !== null,
+        authMode,
+        openAuth: (mode = 'login') => setAuthMode(mode),
+        closeAuth: () => setAuthMode(null)
+    }), [status, user, token, login, register, logout, authMode]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
