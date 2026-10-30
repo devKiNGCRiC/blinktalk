@@ -6,7 +6,7 @@
 
 const { describe, test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { startServer, api, connectSocket, waitFor, staysQuiet, createUser, sleep } = require('./helpers');
+const { startServer, api, connectSocket, waitFor, staysQuiet, createUser, sleep, befriend } = require('./helpers');
 
 let server;
 const openSockets = [];
@@ -85,6 +85,7 @@ describe('server and authentication', () => {
     test('token in the handshake authenticates messages sent right after connecting', async () => {
         const sender = await user('handshaker');
         const receiver = await user('handshakee');
+        await befriend(sender, receiver);
 
         // No 'user:authenticate' - the message is emitted immediately on connect,
         // like a message queued while offline
@@ -118,6 +119,7 @@ describe('private messaging', () => {
     before(async () => {
         alice = await user('alice');
         bob = await user('bob');
+        await befriend(alice, bob);
     });
 
     test('user search finds people and escapes regex characters', async () => {
@@ -177,6 +179,7 @@ describe('private messaging', () => {
 
     test('messages sent while offline are marked delivered on login', async () => {
         const carol = await user('carol');
+        await befriend(alice, carol);
         carol.socket.close();
         await sleep(200);
 
@@ -295,5 +298,114 @@ describe('rooms', () => {
     test('history includes the join system message', async () => {
         const history = await api('GET', `/api/messages/room/${roomId}`, null, member.token);
         assert.ok(history.body.data.messages.some(m => m.type === 'system'));
+    });
+});
+
+// ============================================
+// Friends
+// ============================================
+
+describe('friends', () => {
+    /** Match two sockets in stranger chat on a unique interest */
+    async function match(a, b, tag) {
+        a.emit('stranger:search', { interests: [tag] });
+        await waitFor(a, 'stranger:searching');
+        const both = Promise.all([waitFor(a, 'stranger:connected'), waitFor(b, 'stranger:connected')]);
+        b.emit('stranger:search', { interests: [tag] });
+        await both;
+    }
+
+    test('friends made in stranger chat show up in contacts', async () => {
+        const dan = await user('dan');
+        const eve = await user('eve');
+        await befriend(dan, eve);
+
+        const contacts = await api('GET', '/api/users/contacts', null, dan.token);
+        const eveContact = contacts.body.data.contacts.find(c => c.user.username === 'eve');
+        assert.ok(eveContact);
+        assert.equal(eveContact.lastMessage, null);
+    });
+
+    test('an anonymous stranger cannot be added', async () => {
+        const fay = await user('fay');
+        const anon = socket();
+        await match(fay.socket, anon, 'anon-friend');
+        const error = waitFor(fay.socket, 'stranger:friend:error');
+        fay.socket.emit('stranger:friend:request');
+        await error;
+        fay.socket.emit('stranger:disconnect');
+    });
+
+    test('accepting without a request fails', async () => {
+        const gus = await user('gus');
+        const hal = await user('hal');
+        await match(gus.socket, hal.socket, 'no-request');
+        const error = waitFor(hal.socket, 'stranger:friend:error');
+        hal.socket.emit('stranger:friend:accept');
+        await error;
+        gus.socket.emit('stranger:disconnect');
+    });
+
+    test('a request ends when the partner leaves', async () => {
+        const ian = await user('ian');
+        const jo = await user('jo_');
+        await match(ian.socket, jo.socket, 'leaver');
+        const requested = waitFor(jo.socket, 'stranger:friend:requested');
+        ian.socket.emit('stranger:friend:request');
+        await requested;
+
+        const left = waitFor(ian.socket, 'stranger:disconnected');
+        jo.socket.close();
+        await left;
+
+        const contacts = await api('GET', '/api/users/contacts', null, ian.token);
+        assert.equal(contacts.body.data.contacts.length, 0);
+    });
+
+    test('only friends can message each other', async () => {
+        const kim = await user('kim');
+        const lee = await user('lee');
+        const error = waitFor(kim.socket, 'message:error');
+        kim.socket.emit('message:private', { receiverId: lee.id, content: 'hello?', tempId: 'nf1' });
+        assert.equal((await error).message, 'You can only message friends');
+    });
+
+    test('reactions: one per person, replace, toggle off, unknown emoji ignored', async () => {
+        const max = await user('max');
+        const ned = await user('ned');
+        await befriend(max, ned);
+        const sent = waitFor(max.socket, 'message:sent');
+        max.socket.emit('message:private', { receiverId: ned.id, content: 'react pls', tempId: 'r1' });
+        const { _id: messageId } = await sent;
+
+        const react = async emoji => {
+            const update = waitFor(max.socket, 'message:reaction');
+            ned.socket.emit('message:react', { messageId, emoji });
+            return (await update).reactions;
+        };
+
+        assert.deepEqual((await react('❤️')).map(r => r.emoji), ['❤️']);
+        assert.deepEqual((await react('😂')).map(r => r.emoji), ['😂']);
+        assert.deepEqual(await react('😂'), []);
+
+        ned.socket.emit('message:react', { messageId, emoji: '💩' });
+        assert.ok(await staysQuiet(max.socket, 'message:reaction'));
+    });
+
+    test('unfriend tells both people and stops messages', async () => {
+        const oli = await user('oli');
+        const pam = await user('pam');
+        await befriend(oli, pam);
+
+        const removed = Promise.all([waitFor(oli.socket, 'friend:removed'), waitFor(pam.socket, 'friend:removed')]);
+        const res = await api('DELETE', `/api/users/friends/${pam.id}`, null, oli.token);
+        assert.equal(res.status, 200);
+        const [toOli, toPam] = await removed;
+        assert.equal(toOli.userId, pam.id);
+        assert.equal(toPam.userId, oli.id);
+
+        const error = waitFor(oli.socket, 'message:error');
+        oli.socket.emit('message:private', { receiverId: pam.id, content: 'still there?', tempId: 'u1' });
+        assert.equal((await error).message, 'You can only message friends');
     });
 });

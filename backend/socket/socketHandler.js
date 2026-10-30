@@ -18,7 +18,7 @@ const Room = require('../models/Room');
 const { verifyToken } = require('../config/jwt');
 
 // Message text validation (shared with stranger chat)
-const { cleanContent } = require('../stranger/moderation');
+const { cleanContent, REACTIONS } = require('../stranger/moderation');
 
 // Stranger chat (matching, limits, reports)
 const setupStranger = require('../stranger/strangerHandler');
@@ -224,6 +224,11 @@ module.exports = (io) => {
                     return socket.emit('message:error', { tempId, message: 'You can\'t message this user' });
                 }
 
+                // Private chats are only between friends (made in stranger chat)
+                if (!sender.friends.some(id => id.toString() === receiverId)) {
+                    return socket.emit('message:error', { tempId, message: 'You can only message friends' });
+                }
+
                 // Mark as delivered right away if the receiver is connected
                 const receiverOnline = await isUserConnected(receiverId);
 
@@ -339,6 +344,40 @@ module.exports = (io) => {
             } catch (error) {
                 console.error('Delete Message Error:', error);
                 socket.emit('error', { message: 'Failed to delete message' });
+            }
+        });
+
+        /**
+         * Event: message:react
+         * Description: React to a private message. One reaction per person:
+         * a new emoji replaces yours, the same emoji again removes it.
+         * Data: { messageId, emoji }
+         */
+        socket.on('message:react', async (data = {}) => {
+            try {
+                if (!socket.userId || !REACTIONS.includes(data.emoji)) return;
+
+                const message = validId(data.messageId) && await Message.findById(data.messageId);
+                if (!message || message.isDeleted || !message.receiver) return;
+
+                const inChat = [message.sender, message.receiver].some(id => id && id.toString() === socket.userId);
+                if (!inChat) return;
+
+                const mine = message.reactions.find(r => r.user.toString() === socket.userId);
+                if (mine && mine.emoji === data.emoji) {
+                    message.reactions.pull(mine._id);
+                } else if (mine) {
+                    mine.emoji = data.emoji;
+                } else {
+                    message.reactions.push({ user: socket.userId, emoji: data.emoji });
+                }
+                await message.save();
+
+                const reactions = message.reactions.map(r => ({ user: r.user.toString(), emoji: r.emoji }));
+                io.to(`user:${message.sender}`).to(`user:${message.receiver}`)
+                    .emit('message:reaction', { messageId: message._id.toString(), reactions });
+            } catch (error) {
+                console.error('Reaction Error:', error);
             }
         });
 

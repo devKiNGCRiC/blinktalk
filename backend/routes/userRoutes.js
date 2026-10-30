@@ -14,6 +14,7 @@ const {
     updateProfile,
     searchUsers,
     getContacts,
+    unfriend,
     blockUser,
     unblockUser,
     getBlockedUsers,
@@ -83,6 +84,13 @@ router.post('/:userId/block', protect, blockUser);
  * @access  Private
  */
 router.post('/:userId/unblock', protect, unblockUser);
+
+/**
+ * @route   DELETE /api/users/friends/:userId
+ * @desc    Remove a friend
+ * @access  Private
+ */
+router.delete('/friends/:userId', protect, unfriend);
 
 // ============================================
 // Export Router

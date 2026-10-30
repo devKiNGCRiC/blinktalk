@@ -91,6 +91,31 @@ function staysQuiet(socket, event, ms = 400) {
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
+ * Make two signed-up users friends the way people do in the app:
+ * match in stranger chat (on a unique interest), request, accept, leave.
+ */
+async function befriend(a, b) {
+    const tag = `friends-${randomUUID().slice(0, 8)}`;
+    a.socket.emit('stranger:search', { interests: [tag] });
+    await waitFor(a.socket, 'stranger:searching');
+    const connected = Promise.all([waitFor(a.socket, 'stranger:connected'), waitFor(b.socket, 'stranger:connected')]);
+    b.socket.emit('stranger:search', { interests: [tag] });
+    await connected;
+
+    const requested = waitFor(b.socket, 'stranger:friend:requested');
+    a.socket.emit('stranger:friend:request');
+    await requested;
+
+    const added = Promise.all([waitFor(a.socket, 'stranger:friend:added'), waitFor(b.socket, 'stranger:friend:added')]);
+    b.socket.emit('stranger:friend:accept');
+    await added;
+
+    const ended = waitFor(a.socket, 'stranger:ended');
+    a.socket.emit('stranger:disconnect');
+    await ended;
+}
+
+/**
  * Helpers bound to one server's port
  */
 function client(port) {
@@ -147,4 +172,4 @@ function client(port) {
 // Default helpers for tests/api.test.js (port 5055)
 const { api, connectSocket, createUser } = client(5055);
 
-module.exports = { startServer, client, api, connectSocket, waitFor, staysQuiet, createUser, sleep };
+module.exports = { startServer, client, api, connectSocket, waitFor, staysQuiet, createUser, sleep, befriend };

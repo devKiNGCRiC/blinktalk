@@ -16,7 +16,7 @@ const Report = require('../models/Report');
 const Ban = require('../models/Ban');
 const { createMatcher } = require('./matcher');
 const { createRateLimiter } = require('./rateLimiter');
-const { cleanContent, cleanStrangerText } = require('./moderation');
+const { REACTIONS, cleanContent, cleanStrangerText } = require('./moderation');
 const { randomIcebreaker } = require('./icebreakers');
 
 // ============================================
@@ -36,7 +36,6 @@ const BAN_THRESHOLD = numberFromEnv('REPORT_BAN_THRESHOLD', 3);
 const BAN_MS = 24 * 60 * 60 * 1000;
 const SWEEP_MS = 250;
 
-const REACTIONS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
 const REPORT_REASONS = ['spam', 'harassment', 'sexual', 'underage', 'other'];
 const GENDERS = ['male', 'female', 'nonbinary'];
 const MAX_TAG_LENGTH = 24;
@@ -210,6 +209,25 @@ module.exports = function setupStranger(io) {
         }
     }
 
+    /**
+     * Two signed-up strangers become friends; each is told about the other
+     */
+    async function makeFriends(sessionA, sessionB) {
+        const idA = sessionA.entry.keys.userId;
+        const idB = sessionB.entry.keys.userId;
+        await User.updateOne({ _id: idA }, { $addToSet: { friends: idB } });
+        await User.updateOne({ _id: idB }, { $addToSet: { friends: idA } });
+
+        const [userA, userB] = await Promise.all([
+            User.findById(idA).select('username displayName avatar isOnline lastSeen'),
+            User.findById(idB).select('username displayName avatar isOnline lastSeen')
+        ]);
+        sessionA.friendRequested = false;
+        sessionB.friendRequested = false;
+        sessionA.socket.emit('stranger:friend:added', { user: userB });
+        sessionB.socket.emit('stranger:friend:added', { user: userA });
+    }
+
     // ============================================
     // Matching Loop
     // ============================================
@@ -376,6 +394,47 @@ module.exports = function setupStranger(io) {
             if (!partner) return;
             partner.socket.emit('stranger:reaction', { messageId, emoji, from: 'stranger' });
             socket.emit('stranger:reaction', { messageId, emoji, from: 'you' });
+        });
+
+        /**
+         * Event: stranger:friend:request - ask the partner to be friends
+         * (both need an account)
+         */
+        socket.on('stranger:friend:request', async () => {
+            try {
+                const session = sessionOf(socket);
+                const partner = partnerOf(session);
+                if (!partner) return socket.emit('stranger:friend:error', { message: 'No stranger connected' });
+                if (!session.entry.registered || !partner.entry.registered) {
+                    return socket.emit('stranger:friend:error', { message: 'You both need an account to add friends' });
+                }
+
+                // Both pressed "Add friend": that's a yes from both sides
+                if (partner.friendRequested) return makeFriends(session, partner);
+
+                session.friendRequested = true;
+                partner.socket.emit('stranger:friend:requested');
+            } catch (error) {
+                console.error('Friend Request Error:', error);
+                socket.emit('stranger:friend:error', { message: 'Could not send the friend request' });
+            }
+        });
+
+        /**
+         * Event: stranger:friend:accept - accept the partner's request
+         */
+        socket.on('stranger:friend:accept', async () => {
+            try {
+                const session = sessionOf(socket);
+                const partner = partnerOf(session);
+                if (!partner || !partner.friendRequested) {
+                    return socket.emit('stranger:friend:error', { message: 'There is no friend request to accept' });
+                }
+                await makeFriends(session, partner);
+            } catch (error) {
+                console.error('Friend Accept Error:', error);
+                socket.emit('stranger:friend:error', { message: 'Could not add friend' });
+            }
         });
 
         /**

@@ -4,6 +4,8 @@
 
 // This file handles user-related operations
 
+const mongoose = require('mongoose');
+
 // Import models
 const User = require('../models/User');
 const Message = require('../models/Message');
@@ -185,78 +187,55 @@ const searchUsers = async (req, res) => {
 
 /**
  * @route   GET /api/users/contacts
- * @desc    Get list of users current user has chatted with
+ * @desc    Get the user's friends, with their last message and unread count
  * @access  Private
  */
 const getContacts = async (req, res) => {
     try {
-        // Get all messages where current user is sender or receiver
-        const messages = await Message.find({
-            $or: [
-                { sender: req.user._id },
-                { receiver: req.user._id }
-            ],
-            room: null, // Only private messages
-            deletedFor: { $ne: req.user._id } // Skip messages this user deleted for themselves
-        })
-        .populate('sender', 'username displayName avatar isOnline lastSeen')
-        .populate('receiver', 'username displayName avatar isOnline lastSeen')
-        .sort({ createdAt: -1 });
+        const me = req.user._id;
 
-        // Extract unique contacts
-        const contactsMap = new Map();
-        
-        for (const message of messages) {
-            // Skip messages whose sender/receiver account no longer exists
-            if (!message.sender || !message.receiver) continue;
+        // Friends with their presence
+        const user = await User.findById(me)
+            .populate('friends', 'username displayName avatar isOnline lastSeen isActive');
+        const friends = (user.friends || []).filter(friend => friend.isActive !== false);
 
-            // Determine the other user (not current user)
-            const otherUser = message.sender._id.toString() === req.user._id.toString() 
-                ? message.receiver 
-                : message.sender;
-
-            // Skip if contact already added
-            if (!otherUser || contactsMap.has(otherUser._id.toString())) {
-                continue;
-            }
-
-            // Add contact with last message info
-            contactsMap.set(otherUser._id.toString(), {
-                user: otherUser,
-                lastMessage: {
-                    content: message.isDeleted ? '' : message.content,
-                    isDeleted: message.isDeleted,
-                    fromMe: message.sender._id.toString() === req.user._id.toString(),
-                    createdAt: message.createdAt,
-                    isRead: message.isRead
-                },
-                unreadCount: 0
-            });
-        }
-
-        // Count unread messages per contact in a single aggregation
-        // Result: [{ _id: senderId, count: 3 }, ...]
+        // Unread messages per friend
         const unreadCounts = await Message.aggregate([
-            {
-                $match: {
-                    receiver: req.user._id,
-                    room: null,
-                    isRead: false,
-                    isDeleted: false
-                }
-            },
+            { $match: { receiver: me, room: null, isRead: false, isDeleted: false } },
             { $group: { _id: '$sender', count: { $sum: 1 } } }
         ]);
+        const unreadBySender = new Map(unreadCounts.map(({ _id, count }) => [_id.toString(), count]));
 
-        for (const { _id, count } of unreadCounts) {
-            const contact = contactsMap.get(_id.toString());
-            if (contact) contact.unreadCount = count;
-        }
+        // Last message with each friend (skipping ones this user deleted for themselves)
+        const contacts = await Promise.all(friends.map(async friend => {
+            const last = await Message.findOne({
+                $or: [
+                    { sender: me, receiver: friend._id },
+                    { sender: friend._id, receiver: me }
+                ],
+                room: null,
+                deletedFor: { $ne: me }
+            }).sort({ createdAt: -1 });
 
-        // Convert map to array
-        const contacts = Array.from(contactsMap.values());
+            const { isActive, ...friendFields } = friend.toObject();
+            return {
+                user: friendFields,
+                lastMessage: last ? {
+                    content: last.isDeleted ? '' : last.content,
+                    isDeleted: last.isDeleted,
+                    fromMe: last.sender.toString() === me.toString(),
+                    createdAt: last.createdAt,
+                    isRead: last.isRead
+                } : null,
+                unreadCount: unreadBySender.get(friend._id.toString()) || 0
+            };
+        }));
 
-        // Send contacts
+        // Most recent conversation first; new friends without messages at the end
+        contacts.sort((a, b) =>
+            new Date(b.lastMessage?.createdAt || 0) - new Date(a.lastMessage?.createdAt || 0)
+        );
+
         res.status(200).json({
             success: true,
             data: {
@@ -266,13 +245,47 @@ const getContacts = async (req, res) => {
         });
 
     } catch (error) {
-        // Handle errors
         console.error('Get Contacts Error:', error);
         res.status(500).json({
             success: false,
             message: 'Error fetching contacts',
             error: error.message
         });
+    }
+};
+
+// ============================================
+// Unfriend
+// ============================================
+
+/**
+ * @route   DELETE /api/users/friends/:userId
+ * @desc    Remove a friend (removes the friendship for both people)
+ * @access  Private
+ */
+const unfriend = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        if (!mongoose.isValidObjectId(userId)) {
+            return res.status(400).json({ success: false, message: 'Invalid user ID' });
+        }
+
+        const me = req.user._id;
+        await User.updateOne({ _id: me }, { $pull: { friends: userId } });
+        await User.updateOne({ _id: userId }, { $pull: { friends: me } });
+
+        // Both people's apps drop the chat right away
+        const io = req.app.get('io');
+        if (io) {
+            io.to(`user:${me}`).emit('friend:removed', { userId });
+            io.to(`user:${userId}`).emit('friend:removed', { userId: me.toString() });
+        }
+
+        res.status(200).json({ success: true, message: 'Friend removed' });
+
+    } catch (error) {
+        console.error('Unfriend Error:', error);
+        res.status(500).json({ success: false, message: 'Error removing friend' });
     }
 };
 
@@ -478,6 +491,7 @@ module.exports = {
     updateProfile,
     searchUsers,
     getContacts,
+    unfriend,
     blockUser,
     unblockUser,
     getBlockedUsers,

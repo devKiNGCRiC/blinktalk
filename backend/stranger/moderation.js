@@ -30,6 +30,9 @@ const LINK_PATTERN = new RegExp(
     'gi'
 );
 
+// The only emoji people can react with (stranger chat and friends)
+const REACTIONS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
+
 // Maximum message length (same as the Message model)
 const MAX_MESSAGE_LENGTH = 5000;
 
@@ -72,4 +75,4 @@ function cleanStrangerText(text, { allowLinks }) {
     return allowLinks ? masked : removeLinks(masked);
 }
 
-module.exports = { cleanContent, maskBadWords, removeLinks, cleanStrangerText };
+module.exports = { REACTIONS, cleanContent, maskBadWords, removeLinks, cleanStrangerText };
