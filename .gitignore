@@ -25,3 +25,6 @@ build/
 
 # Uploads
 uploads/
+
+# Superpowers scratch
+.superpowers/
