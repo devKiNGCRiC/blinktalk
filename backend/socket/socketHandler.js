@@ -23,27 +23,12 @@ const { cleanContent, REACTIONS } = require('../stranger/moderation');
 // Stranger chat (matching, limits, reports)
 const setupStranger = require('../stranger/strangerHandler');
 
+// Device id and IP address of a connection
+const { cleanDeviceId, clientIp } = require('../stranger/identity');
+
 // ============================================
 // Small Helpers
 // ============================================
-
-/**
- * Device id sent by the browser (a random id kept in localStorage), or null
- */
-function cleanDeviceId(id) {
-    return typeof id === 'string' && /^[\w-]{8,64}$/.test(id) ? id : null;
-}
-
-/**
- * The client's IP address (the first X-Forwarded-For entry when behind a proxy)
- */
-function clientIp(socket) {
-    const forwarded = socket.handshake.headers['x-forwarded-for'];
-    if (process.env.TRUST_PROXY === '1' && forwarded) {
-        return forwarded.split(',')[0].trim();
-    }
-    return socket.handshake.address;
-}
 
 /**
  * Returns the ID if it is a valid MongoDB ObjectId, otherwise null
@@ -84,7 +69,7 @@ module.exports = (io) => {
     io.use((socket, next) => {
         // Who this browser is, for stranger chat limits, reports and bans
         socket.deviceId = cleanDeviceId(socket.handshake.auth && socket.handshake.auth.deviceId);
-        socket.ip = clientIp(socket);
+        socket.ip = clientIp(socket.handshake.headers, socket.handshake.address, process.env.TRUST_PROXY === '1');
 
         const token = socket.handshake.auth && socket.handshake.auth.token;
         if (token) {

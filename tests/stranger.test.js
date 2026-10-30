@@ -102,8 +102,44 @@ describe('stranger chat', () => {
         const [memberInfo, anonInfo] = await pair(member.socket, anon);
         assert.deepEqual(memberInfo.partner, { registered: false });
         assert.equal(anonInfo.partner.registered, true);
-        assert.equal(anonInfo.partner.userId, member.id);
+        assert.equal(anonInfo.partner.userId, undefined);
         assert.equal(anonInfo.partner.displayName, 'strangerreg1');
+    });
+
+    test('a user profile never exposes email or friends to other people', async () => {
+        const member = await user('privacy1');
+        const other = await user('privacy2');
+        const { status, body } = await api('GET', `/api/users/${member.id}`, null, other.token);
+        assert.equal(status, 200);
+        assert.equal(body.data.user.username, 'privacy1');
+        assert.equal(body.data.user.email, undefined);
+        assert.equal(body.data.user.friends, undefined);
+        assert.equal(body.data.user.acceptedTermsAt, undefined);
+    });
+
+    test('you can still report someone right after they leave', async () => {
+        const a = sock();
+        const b = sock();
+        await pair(a, b);
+        const left = waitFor(a, 'stranger:disconnected');
+        b.emit('stranger:disconnect');
+        await left;
+        const reported = waitFor(a, 'stranger:reported');
+        a.emit('stranger:report', { reason: 'harassment' });
+        assert.match((await reported).message, /Thanks/);
+    });
+
+    test('several guests on one network count as one reporter', async () => {
+        const target = sock({ deviceId: 'not-banned-device' });
+        for (let i = 0; i < 3; i++) {
+            const reporter = sock();
+            await pair(target, reporter);
+            const left = waitFor(target, 'stranger:disconnected');
+            reporter.emit('stranger:report', { reason: 'spam' });
+            await left;
+        }
+        target.emit('stranger:search', {});
+        await waitFor(target, 'stranger:searching');
     });
 
     test('bad words are masked; only signed-up users can send links', async () => {
@@ -195,15 +231,15 @@ describe('stranger chat', () => {
     });
 
     // Last: the ban also covers the shared test IP
-    test('three reports from different people ban the reported device', async () => {
+    test('three signed-up reporters ban the reported device', async () => {
         const target = sock({ deviceId: 'troll-device' });
         for (let i = 0; i < 3; i++) {
-            const reporter = sock();
-            await pair(target, reporter);
-            const ended = waitFor(reporter, 'stranger:ended');
+            const reporter = await user(`reporter${i}`);
+            await pair(target, reporter.socket);
+            const ended = waitFor(reporter.socket, 'stranger:ended');
             const left = waitFor(target, 'stranger:disconnected');
             const banned = i === 2 && waitFor(target, 'stranger:banned');
-            reporter.emit('stranger:report', { reason: 'spam' });
+            reporter.socket.emit('stranger:report', { reason: 'spam' });
             await Promise.all([ended, left]);
             if (banned) assert.ok(new Date((await banned).until) > new Date());
         }

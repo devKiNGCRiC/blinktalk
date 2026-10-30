@@ -24,8 +24,9 @@ const getUserProfile = async (req, res) => {
         // Get user ID from URL parameters
         const { userId } = req.params;
 
-        // Find user in database
-        const user = await User.findById(userId).select('-password');
+        // Find user in database - public fields only, never email, friends or settings
+        const user = mongoose.isValidObjectId(userId) && await User.findById(userId)
+            .select('username displayName avatar bio country isOnline lastSeen');
 
         // Check if user exists
         if (!user) {
@@ -39,7 +40,7 @@ const getUserProfile = async (req, res) => {
         res.status(200).json({
             success: true,
             data: {
-                user: user.toSafeObject()
+                user
             }
         });
 

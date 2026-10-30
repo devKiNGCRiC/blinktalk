@@ -151,13 +151,17 @@ export default function StrangerChat({ stranger, active, guest, onNext, onOpenFr
     const [reporting, setReporting] = useState(false);
     const [pendingText, setPendingText] = useState(null);
     const [escArmed, setEscArmed] = useState(false);
+    const [reported, setReported] = useState(false);
     const startedAt = useRef(new Date());
 
     const isConnected = phase === 'connected';
     const canAddFriend = !guest && partner?.registered;
 
     useEffect(() => {
-        if (isConnected) startedAt.current = new Date();
+        if (isConnected) {
+            startedAt.current = new Date();
+            setReported(false);
+        }
     }, [isConnected]);
 
     // Follow new lines
@@ -204,8 +208,12 @@ export default function StrangerChat({ stranger, active, guest, onNext, onOpenFr
 
     const report = reason => {
         setReporting(false);
+        setReported(true);
         stranger.report(reason);
     };
+
+    // Someone can still be reported for a few minutes after they leave
+    const canReport = Boolean(partner) && !reported && (isConnected || phase === 'ended');
 
     const hasMessages = lines.some(line => line.kind !== 'system');
 
@@ -227,11 +235,13 @@ export default function StrangerChat({ stranger, active, guest, onNext, onOpenFr
                             <Download size={20} />
                         </button>
                     )}
+                    {canReport && (
+                        <button className="icon-btn" onClick={() => setReporting(true)} aria-label="Report" title={isConnected ? 'Report and skip' : 'Report this stranger'}>
+                            <Flag size={20} />
+                        </button>
+                    )}
                     {isConnected ? (
                         <>
-                            <button className="icon-btn" onClick={() => setReporting(true)} aria-label="Report" title="Report and skip">
-                                <Flag size={20} />
-                            </button>
                             <button className="btn btn-ghost" onClick={onNext} title="Skip to a new stranger (Esc Esc)">
                                 <SkipForward size={18} />
                                 <span className={styles.actionLabel}>Next</span>
@@ -288,7 +298,9 @@ export default function StrangerChat({ stranger, active, guest, onNext, onOpenFr
 
             {reporting && (
                 <Modal title="Report this stranger" onClose={() => setReporting(false)} size="sm">
-                    <p className={styles.modalText}>What happened? You’ll be moved on from this chat right away.</p>
+                    <p className={styles.modalText}>
+                        {isConnected ? 'What happened? You’ll be moved on from this chat right away.' : 'What happened?'}
+                    </p>
                     <div className={styles.reasonList}>
                         {REPORT_REASONS.map(reason => (
                             <button key={reason.value} className="btn btn-ghost btn-block" onClick={() => report(reason.value)}>

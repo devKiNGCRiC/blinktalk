@@ -43,6 +43,7 @@ export function useStranger() {
             'stranger:limit': ({ limit, resetsAt }) => dispatch({ type: 'LIMIT', limit, resetsAt }),
             'stranger:banned': ({ until }) => dispatch({ type: 'BANNED', until }),
             'stranger:rate-limited': ({ message }) => toast.info(message),
+            'stranger:reported': ({ message }) => toast.success(message),
             'stranger:friend:requested': () => dispatch({ type: 'FRIEND_RECEIVED' }),
             'stranger:friend:added': ({ user: friend }) => dispatch({ type: 'FRIEND_ADDED', user: friend }),
             'stranger:friend:error': ({ message }) => toast.error(message)
