@@ -2,6 +2,8 @@
 
 Open the site, get matched with a random person, talk, and hit **Next**. No account needed. Signing up is optional and unlocks unlimited chats, filters and friends.
 
+![BlinkTalk stranger chat with an icebreaker, reactions and a typing indicator](docs/screenshots/stranger-chat.png)
+
 ## ✨ Features
 
 **Stranger chat (everyone)**
@@ -34,6 +36,22 @@ Open the site, get matched with a random person, talk, and hit **Next**. No acco
 | Friends list with history, ✓✓ read receipts, replies, reactions | – | ✓ |
 
 **Everything else:** 5 themes (Midnight Neon, Sunset, Clean Light, Matcha, Y2K Pink), profiles with generated avatars, presence and unread badges, automatic reconnects, and a phone layout with a bottom tab bar.
+
+## 📸 Screenshots
+
+| Start a chat | Meet a signed-up stranger |
+|---|---|
+| ![Start screen with interest tags, the 18+ checkbox and the live online count](docs/screenshots/start.png) | ![Chat with a signed-up stranger: name, country and an Accept friend button](docs/screenshots/friend-request.png) |
+| **Friends you made in stranger chat** | **Sign up** |
+| ![Friends list with a private chat and read receipts](docs/screenshots/friends.png) | ![Sign-up screen with password rules and the 18+ checkbox](docs/screenshots/signup.png) |
+| **Profile and filter details** | **On your phone** |
+| ![Settings: avatar, display name, bio, gender, country and language](docs/screenshots/settings.png) | <img src="docs/screenshots/mobile-start.png" alt="Phone: start screen" width="49%"> <img src="docs/screenshots/mobile-chat.png" alt="Phone: stranger chat" width="49%"> |
+
+**Five themes:** Midnight Neon (above), Sunset, Clean Light, Matcha and Y2K Pink.
+
+| Sunset | Clean Light | Matcha | Y2K Pink |
+|---|---|---|---|
+| ![Sunset theme](docs/screenshots/theme-sunset.png) | ![Clean Light theme](docs/screenshots/theme-light.png) | ![Matcha theme](docs/screenshots/theme-matcha.png) | ![Y2K Pink theme](docs/screenshots/theme-y2k.png) |
 
 ## 🛠️ Tech Stack
 
@@ -121,7 +139,7 @@ BlinkTalk/
 │       ├── lib/         # Pure helpers (formatting, grouping, themes)
 │       └── styles/      # Theme variables + global styles
 ├── tests/               # Backend unit (tests/unit) and integration tests
-└── docs/                # Design spec
+└── docs/                # Design spec, plan and README screenshots
 ```
 
 ## 🌐 Deployment (Render + MongoDB Atlas)
